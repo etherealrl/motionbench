@@ -1,0 +1,319 @@
+.chart .panel-heading {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: --spacing(1.5);
+  align-items: start;
+}
+.chart .panel-heading > span {
+  text-align: left;
+}
+.metric-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin: var(--spacing-block) 0 var(--spacing-group);
+  padding: var(--spacing-block) var(--spacing-block);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-card);
+}
+.metric-grid > div {
+  min-width: 0;
+  padding: 0 var(--spacing-group);
+  border-left: 1px solid var(--color-border);
+}
+/* the first metric of a row starts at the card's inset like everything else */
+.metric-grid > div:first-child {
+  border: 0;
+  padding-left: 0;
+}
+.metric-grid > div > span {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-tight);
+  min-height: --spacing(6);
+  color: var(--color-muted-foreground);
+  font-size: var(--text-xs);
+}
+.metric-grid strong {
+  display: block;
+  margin-top: var(--spacing-inline);
+  font-size: var(--text-3xl);
+  font-weight: 550;
+  letter-spacing: -0.6px;
+  color: var(--color-foreground);
+  font-variant-numeric: tabular-nums;
+}
+.metric-grid strong em {
+  color: var(--color-muted-foreground);
+  font-style: normal;
+  font-size: var(--text-sm);
+  margin-left: var(--spacing-inline);
+  letter-spacing: 0;
+}
+.metric-grid small {
+  display: block;
+  font-size: var(--text-sm);
+}
+.chart-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--spacing-group);
+  margin-top: var(--spacing-group);
+}
+.chart canvas {
+  display: block;
+  width: 100%;
+  height: var(--canvas-height);
+  padding: 0 12px; /* pixels: the plots measure their drawing area from this */
+}
+.chart-foot {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--spacing-group);
+  font-size: var(--text-sm);
+  color: var(--color-muted-foreground);
+  padding: var(--spacing-inline) var(--spacing-block) var(--spacing-row);
+}
+.summary-chart {
+  width: 100%;
+  display: block;
+  padding: 0 var(--spacing-block);
+  max-height: 210px;
+}
+.delivery {
+  padding: var(--spacing-group) var(--spacing-block);
+  display: grid;
+  gap: var(--spacing-group);
+}
+.delivery-row {
+  display: grid;
+  grid-template-columns: 28px 1fr 50px 65px;
+  gap: var(--spacing-row);
+  align-items: center;
+  font-size: var(--text-sm);
+}
+.groups .delivery-row {
+  grid-template-columns: 84px 1fr 48px 48px;
+  white-space: nowrap;
+}
+.groups.with-baseline .delivery-row {
+  grid-template-columns: 84px 1fr 48px 48px 56px;
+}
+.groups .delivery-row > :nth-child(n + 3) {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.groups .delivery-row > em {
+  color: var(--color-chart-baseline);
+  font-style: normal;
+}
+.delivery-head {
+  color: var(--color-muted-foreground);
+  font-size: var(--text-xs);
+}
+.chart-wide {
+  grid-column: 1 / -1;
+}
+.delivery-track {
+  background: var(--color-muted);
+  height: 7px;
+  border-radius: var(--radius-xs);
+  position: relative;
+}
+.delivery-track > div {
+  height: 100%;
+  width: var(--share);
+  background: var(--color-chart-candidate);
+  border-radius: var(--radius-xs);
+}
+.delivery-track > i {
+  position: absolute;
+  left: var(--base);
+  top: -3px;
+  bottom: -3px;
+  border-left: 2px solid var(--color-chart-baseline);
+}
+.delivery-row strong {
+  color: var(--color-foreground);
+  text-align: right;
+  font-family: ui-monospace, monospace;
+  font-weight: 500;
+}
+.delivery-row small {
+  font-size: var(--text-xs);
+  text-align: right;
+}
+.delivery-row em {
+  display: block;
+  color: var(--color-chart-baseline);
+  font-style: normal;
+  font-size: var(--text-sm);
+}
+.chart-empty {
+  display: grid;
+  place-content: center;
+  text-align: center;
+  min-height: 160px;
+  color: var(--color-muted-foreground);
+  font-size: var(--text-sm);
+  padding: --spacing(8);
+  line-height: var(--leading-relaxed);
+}
+@container (max-width: 1100px) {
+  .metric-grid strong {
+    font-size: var(--text-2xl);
+  }
+}
+@container (max-width: 900px) {
+  .chart-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+@container (max-width: 750px) {
+  .chart-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .metric-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--spacing-block) 0;
+  }
+  .metric-grid > div:nth-child(3) {
+    border: 0;
+    padding-left: 0;
+  }
+}
+@container (max-width: 600px) {
+  .chart-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+.movement-legend {
+  display: flex;
+  gap: var(--spacing-group);
+  padding: 0 var(--spacing-block);
+  color: var(--color-muted-foreground);
+  font-size: var(--text-sm);
+}
+.movement-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--spacing-inline);
+}
+.movement-legend i {
+  width: 16px;
+  border-top: 1px solid currentColor;
+}
+.movement-legend .dy {
+  border-top-style: dashed;
+}
+.movement-legend .magnitude {
+  border-top-style: dotted;
+}
+.health-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-inline) var(--spacing-block);
+  margin: var(--spacing-row) 0 0;
+  font-size: var(--text-xs);
+}
+.health-strip > div {
+  display: flex;
+  align-items: center;
+  gap: --spacing(1.5);
+}
+.health-strip dt {
+  color: var(--color-muted-foreground);
+}
+.health-strip dd {
+  margin: 0;
+  color: var(--color-foreground);
+  font-variant-numeric: tabular-nums;
+}
+.analysis-tabs {
+  margin-top: var(--spacing-group);
+  min-height: var(--tabs-hold, 0);
+}
+/* the tab row sits as far above a tab as its rows are from each other */
+.analysis-tabs > [data-slot="tabs"] {
+  gap: var(--spacing-group);
+}
+.analysis-tabs-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--spacing-row);
+}
+.analysis-scope {
+  color: var(--color-muted-foreground);
+  font-size: var(--text-xs);
+}
+.analysis-tabs .chart-grid {
+  margin-top: 0;
+}
+.burst-table {
+  max-height: 210px;
+  overflow-y: auto;
+  padding: 0 var(--spacing-row);
+  font-variant-numeric: tabular-nums;
+}
+.burst-table tbody tr {
+  cursor: pointer;
+}
+.burst-table :is(th, td) {
+  text-align: right;
+}
+.metric-grid .metric-baseline {
+  margin-top: --spacing(0.5);
+  color: var(--color-chart-baseline);
+  font-variant-numeric: tabular-nums;
+}
+.metric-grid .metric-warning {
+  margin-top: --spacing(0.5);
+  color: var(--color-warning);
+  font-size: var(--text-xs);
+}
+.health-strip > strong {
+  font-weight: 550;
+  color: var(--color-foreground);
+}
+.analysis-scope {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-group);
+}
+.candidate-mark,
+.baseline-mark {
+  display: inline-block;
+  width: 12px;
+  height: 8px;
+  background: var(--color-chart-candidate);
+}
+.baseline-mark {
+  background: none;
+  border: 1.5px solid var(--color-chart-baseline);
+}
+.timeline-lane + .timeline-lane {
+  margin-top: var(--spacing-group);
+}
+.chart-option {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-inline);
+  font-size: var(--text-xs);
+  color: var(--color-muted-foreground);
+}
+.chart-grid > .advanced-settings {
+  padding: 0;
+}
+.chart-grid > .advanced-settings[open] > summary {
+  margin-bottom: var(--spacing-group);
+}
+/* a baseline's chart of its own draws its bars in the baseline's color */
+[data-recording="baseline"] .delivery-track > div {
+  background: var(--color-chart-baseline);
+}
+/* a recording with nothing to show takes the grid's whole row */
+.chart-grid > .chart-empty {
+  grid-column: 1 / -1;
+}

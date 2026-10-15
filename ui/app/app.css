@@ -1,0 +1,112 @@
+.app-shell {
+  max-width: 1480px;
+  margin: auto;
+  padding: --spacing(8);
+  container-type: inline-size;
+}
+/* the side columns share the space equally, so the tabs stay centered whatever the status says */
+.app-header {
+  display: grid;
+  grid-template-columns: minmax(max-content, 1fr) auto minmax(max-content, 1fr);
+  grid-template-areas: "brand tabs actions";
+  align-items: center;
+  gap: var(--spacing-inline) var(--spacing-group);
+  margin-bottom: var(--spacing-group);
+  padding: var(--spacing-inline) var(--spacing-group);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-card);
+  /* it stays at the top while the page scrolls, the page's own color filling the gap around it
+     so nothing shows through there */
+  position: sticky;
+  top: var(--spacing-group);
+  z-index: 20;
+  box-shadow: 0 0 0 var(--spacing-group) var(--color-background);
+}
+.brand {
+  grid-area: brand;
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-inline);
+  color: var(--color-muted-foreground);
+}
+.brand h1 {
+  color: var(--color-foreground);
+}
+.nav-row {
+  grid-area: tabs;
+}
+.app-header .header-actions {
+  grid-area: actions;
+  justify-self: end;
+  gap: var(--spacing-inline);
+}
+/* one setting per row, an icon naming it on the left */
+.settings-row {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-row);
+}
+/* a row that runs over several lines keeps its icon by the first one */
+.settings-row-top {
+  align-items: start;
+}
+/* as wide as an icon button, so the icons of every row line up */
+.settings-icon {
+  display: inline-flex;
+  flex: none;
+  justify-content: center;
+  width: --spacing(8);
+  color: var(--color-muted-foreground);
+}
+.display-settings {
+  display: grid;
+  gap: var(--spacing-row);
+  width: 300px; /* pixels: room for a folder path */
+}
+/* the folder's path, cut at its start so the end of it stays readable */
+.settings-folder {
+  display: grid;
+  gap: var(--spacing-inline);
+  min-width: 0;
+}
+.settings-path {
+  overflow: hidden;
+  font-size: var(--text-sm);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  direction: rtl;
+  text-align: left;
+}
+.settings-folder-actions,
+.settings-restart {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-inline);
+}
+.global-session-status {
+  display: inline-flex;
+}
+.notices {
+  display: grid;
+  gap: var(--spacing-inline);
+}
+.notices:not(:empty) {
+  margin-bottom: var(--spacing-group);
+}
+@container (max-width: 1100px) {
+  .app-shell {
+    padding: var(--spacing-block);
+  }
+}
+@container (max-width: 780px) {
+  .app-header {
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas: "brand actions" "tabs tabs";
+  }
+}
+@container (max-width: 600px) {
+  .app-header {
+    padding: var(--spacing-inline) var(--spacing-row);
+  }
+}

@@ -1,0 +1,55 @@
+/* a form, so it keeps a form's width instead of stretching across a wide screen */
+.experiment-panel {
+  display: grid;
+  gap: var(--spacing-block);
+  max-width: var(--container-4xl);
+  padding: var(--spacing-block);
+}
+/* label, slider and exact value share three columns, so every slider starts and ends at the same x */
+.aim-form {
+  display: grid;
+  grid-template-columns: var(--label-column) minmax(0, 1fr) --spacing(40);
+  align-items: center;
+  gap: var(--spacing-row) var(--spacing-block);
+  font-variant-numeric: tabular-nums;
+}
+.aim-form-note {
+  grid-column: 2 / -1;
+}
+.aim-form > .aim-form-note.field-description {
+  margin-top: --spacing(-2);
+}
+.aim-binding {
+  justify-self: start;
+}
+/* the actions sit under the settings they use, with the reason beside a blocked one */
+.experiment-footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--spacing-row) var(--spacing-group);
+  padding-top: var(--spacing-block);
+  border-top: 1px solid var(--color-border);
+}
+.experiment-status {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--spacing-inline) var(--spacing-row);
+  color: var(--color-muted-foreground);
+  font-size: var(--text-sm);
+}
+.experiment-diagnostics {
+  padding: 0;
+}
+@container (max-width: 640px) {
+  .aim-form {
+    grid-template-columns: minmax(0, 1fr) --spacing(40);
+  }
+  .aim-form > label {
+    grid-column: 1 / -1;
+  }
+  .aim-form-note {
+    grid-column: 1 / -1;
+  }
+}

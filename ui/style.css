@@ -1,0 +1,365 @@
+@import "tailwindcss";
+@custom-variant dark (&:where(.dark, .dark *));
+/* the colors are real variables rather than inlined into the utilities, so the light theme can swap
+   them at runtime. static, since the canvas charts read some that no utility uses */
+@theme static {
+  --color-background: #0e1015;
+  --color-foreground: #e8e8e8;
+  /* opaque: the page behind a panel is flat, so a translucent panel only blurred nothing */
+  --color-card: #15171e;
+  --color-card-foreground: #e8e8e8;
+  /* the brand blue; dark text on it reads at about 6.8:1, white only reached 2.8:1 */
+  --color-primary: #2da3e8;
+  --color-primary-foreground: #0e1015;
+  --color-secondary: #252932;
+  --color-secondary-foreground: #e3e3e3;
+  --color-muted: #21252d;
+  --color-muted-foreground: #a1a7b0;
+  --color-accent: #2b303a;
+  --color-accent-foreground: #e8e8e8;
+  /* one red, light enough for text on the card; white still reads on the 60% button fill */
+  --color-destructive: #ef6f6c;
+  --color-success: #4cc38a;
+  --color-warning: #e0a94a;
+  --color-border: #ffffff1a;
+  --color-input: #ffffff26;
+  --color-ring: #2da3e8;
+  /* data only: the two populations and the null, never text, rings or buttons */
+  --color-chart-baseline: #e9b66f;
+  --color-chart-candidate: #56b4ef;
+  --color-chart-null: #737b84;
+  --color-popover: #191d26;
+  --color-popover-foreground: #e8e8e8;
+  /* what the canvas charts draw besides the populations: the grid and its labels, intervals off
+     the scale, the shading where the mouse moved, gaps with no report, the median line, the hover
+     line and a range being picked */
+  --color-chart-grid: #2b2d30;
+  --color-chart-text: #a5afb7;
+  --color-chart-outlier: #ed8c86;
+  --color-chart-moving: #56b4ef24;
+  --color-chart-gap: #ffffff05;
+  --color-chart-median: #e6e6e699;
+  --color-chart-cursor: #ffffff60;
+  --color-chart-selection: #56b4ef22;
+  --color-scrollbar: #ffffff25;
+}
+@theme inline {
+  /* the rhythm between things: a gap, a padding or a margin between parts takes one of these
+     steps, the plain --spacing() scale is for the inside of a small part. tools/checks/check-css.ts
+     fails any pixel value in their place */
+  --spacing-tight: calc(var(--spacing) * 1);
+  --spacing-inline: calc(var(--spacing) * 2);
+  --spacing-row: calc(var(--spacing) * 3);
+  --spacing-group: calc(var(--spacing) * 4);
+  --spacing-block: calc(var(--spacing) * 6);
+  /* the icons lucide draws at its default size, so a layout can make room for one */
+  --icon-size: 16px;
+  /* the label column of every readout and form, so labels and values line up across them */
+  --label-column: calc(var(--spacing) * 36);
+  --radius-xs: 3px;
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+}
+:root {
+  --radius: 10px;
+  color-scheme: dark;
+  font-family: "Inter Variable", "Segoe UI", system-ui, sans-serif;
+  font-size: 13px; /* pixels: the root size every rem and token is measured in */
+  line-height: 1.5;
+  background: var(--color-background);
+  color: var(--color-foreground);
+  font-synthesis: none;
+}
+/* the light theme, the same roles on a light page. the html element carries `dark` otherwise */
+:root:not(.dark) {
+  color-scheme: light;
+  --color-background: #f4f5f7;
+  --color-foreground: #1b1e24;
+  --color-card: #ffffff;
+  --color-card-foreground: #1b1e24;
+  /* a deeper brand blue, so white text on it still reads at about 4.9:1 */
+  --color-primary: #0f7bc0;
+  --color-primary-foreground: #ffffff;
+  --color-secondary: #eceef1;
+  --color-secondary-foreground: #1f2329;
+  --color-muted: #eef0f3;
+  --color-muted-foreground: #5b626c;
+  --color-accent: #e7eaee;
+  --color-accent-foreground: #1b1e24;
+  --color-destructive: #d03b37;
+  --color-success: #1d8a57;
+  --color-warning: #a8670f;
+  --color-border: #0f172a1a;
+  --color-input: #0f172a26;
+  --color-ring: #0f7bc0;
+  --color-chart-baseline: #c97a12;
+  --color-chart-candidate: #1e87cf;
+  --color-chart-null: #8a929b;
+  --color-popover: #ffffff;
+  --color-popover-foreground: #1b1e24;
+  --color-chart-grid: #e4e7eb;
+  --color-chart-text: #6b737d;
+  --color-chart-outlier: #d9534f;
+  --color-chart-moving: #1e87cf1f;
+  --color-chart-gap: #0f172a08;
+  --color-chart-median: #1b1e2480;
+  --color-chart-cursor: #0f172a55;
+  --color-chart-selection: #1e87cf26;
+  --color-scrollbar: #0f172a30;
+}
+* {
+  box-sizing: border-box;
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-scrollbar) transparent;
+}
+/* element defaults sit in the base layer, so a component's utilities always win over them */
+@layer base {
+  * {
+    border-color: var(--color-border);
+  }
+  button {
+    cursor: pointer;
+  }
+  button:disabled {
+    cursor: default;
+  }
+  canvas:focus-visible {
+    outline: 2px solid var(--color-ring);
+    outline-offset: 2px;
+  }
+  h1,
+  h2,
+  h3,
+  p {
+    margin: 0;
+  }
+  /* type roles from the tailwind scale, so they hold when the root size changes */
+  h1 {
+    @apply text-base font-semibold tracking-tight;
+  }
+  h2 {
+    @apply text-xl font-semibold tracking-tight;
+  }
+  h3 {
+    @apply text-base font-semibold;
+  }
+  small {
+    @apply text-xs text-muted-foreground;
+  }
+  label {
+    @apply text-sm text-muted-foreground;
+  }
+  /* a plain label wraps its control and stacks above it; shadcn's labels lay themselves out */
+  label:not([data-slot]) {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-inline);
+  }
+  fieldset {
+    margin: 0;
+    padding: 0;
+    border: 0;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-row);
+  }
+  legend {
+    @apply mb-2.5 text-xs tracking-wide text-muted-foreground uppercase;
+  }
+  dt {
+    @apply text-muted-foreground;
+  }
+  dd {
+    margin: 0;
+    text-align: right;
+  }
+  summary {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-inline);
+    min-height: 32px;
+    list-style: none;
+  }
+  summary::-webkit-details-marker {
+    display: none;
+  }
+  svg text {
+    font-family: ui-monospace, monospace;
+    fill: var(--color-muted-foreground);
+    font-size: var(--text-sm);
+  }
+}
+body {
+  margin: 0;
+  min-width: 360px;
+  min-height: 100vh;
+  background: var(--color-background);
+}
+/* an open menu still keeps the wheel off the page, but the scrollbar stays, so nothing moves */
+html body[data-scroll-locked] {
+  overflow: visible !important;
+  margin-right: 0 !important;
+}
+.header-actions {
+  display: flex;
+  gap: var(--spacing-group);
+  align-items: center;
+}
+/* the same height on every tab, with or without actions, so a tab's first card never moves */
+.section-intro {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--spacing-group);
+  min-height: --spacing(8);
+  margin: --spacing(8) 0 var(--spacing-group);
+}
+.section-intro p {
+  color: var(--color-muted-foreground);
+  margin-top: var(--spacing-inline);
+  font-size: var(--text-base);
+  line-height: var(--leading-relaxed);
+}
+.panel {
+  border: 1px solid var(--color-border);
+  background: var(--color-card);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+/* the title keeps its row; only the actions wrap under it when the panel is narrow */
+.panel-heading {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: var(--spacing-inline) var(--spacing-group);
+  padding: var(--spacing-group) var(--spacing-block);
+  align-items: center;
+}
+.panel-heading > span {
+  font-size: var(--text-xs);
+  color: var(--color-muted-foreground);
+  text-align: right;
+}
+.panel-heading h3,
+.section-intro > div {
+  min-width: 0;
+}
+.control-row {
+  display: flex;
+  gap: var(--spacing-group);
+  align-items: flex-end;
+  flex-wrap: wrap;
+}
+.control-row + .control-row {
+  margin-top: var(--spacing-group);
+  border-top: 1px solid var(--color-border);
+  padding-top: var(--spacing-group);
+}
+.control-row > label:first-child {
+  flex: 1;
+}
+.control-row > label {
+  min-width: 0;
+}
+.range-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--spacing-group);
+  margin: var(--spacing-group) 0 var(--spacing-row);
+  color: var(--color-muted-foreground);
+  font-size: var(--text-sm);
+  flex-wrap: wrap;
+}
+.range-toolbar > div:first-child {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.range-toolbar strong {
+  font-weight: 500;
+  color: var(--color-foreground);
+}
+.advanced-settings {
+  padding: var(--spacing-group) 0;
+}
+.advanced-settings > summary {
+  font-size: var(--text-sm);
+  cursor: pointer;
+  list-style-position: inside;
+}
+.advanced-settings > summary:focus-visible {
+  outline: 2px solid var(--color-ring);
+  outline-offset: 3px;
+}
+.advanced-settings > p,
+.field-description {
+  font-size: var(--text-sm);
+  line-height: var(--leading-relaxed);
+  color: var(--color-muted-foreground);
+}
+.advanced-settings[open] > summary {
+  margin-bottom: var(--spacing-group);
+}
+.advanced-settings > p {
+  margin: var(--spacing-group) 0;
+}
+.advanced-settings > label + label,
+.advanced-settings > label + button,
+.advanced-settings > p + label {
+  margin-top: var(--spacing-group);
+}
+@container (max-width: 900px) {
+  .section-intro {
+    align-items: flex-start;
+  }
+}
+@container (max-width: 750px) {
+  .section-intro {
+    flex-wrap: wrap;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
+}
+@container (max-width: 600px) {
+  .range-toolbar {
+    align-items: start;
+  }
+}
+.session-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-inline);
+  flex-wrap: wrap;
+}
+/* radix positions overlays in viewport pixels; root zoom would scale that offset twice */
+[data-radix-popper-content-wrapper] {
+  zoom: calc(1 / var(--ui-scale, 1));
+}
+[data-radix-popper-content-wrapper] > [data-slot] {
+  zoom: var(--ui-scale, 1);
+}
+.disclosure-chevron {
+  flex-shrink: 0;
+  transition: transform 0.15s;
+}
+details[open] > summary > .disclosure-chevron {
+  transform: rotate(90deg);
+}
+/* the feature stylesheets come after the shared rules on purpose; tailwind inlines these imports
+   where they stand, a plain css @import would have to come first */
+@import "./app/app.css";
+@import "./charts/charts.css";
+@import "./capture/setup/setup.css";
+@import "./capture/capture.css";
+@import "./compare/compare.css";
+@import "./runs/runs.css";
+@import "./experiment/experiment.css";
+@import "./components/components.css";

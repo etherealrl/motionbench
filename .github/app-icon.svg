@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256"><defs>
+  <radialGradient id="glow" cx="50%" cy="18%" r="75%">
+    <stop offset="0" stop-color="#1f4a6e"/><stop offset="0.55" stop-color="#111a26"/><stop offset="1" stop-color="#0b0f15"/>
+  </radialGradient>
+  <linearGradient id="rim" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0" stop-color="#ffffff" stop-opacity="0.28"/><stop offset="1" stop-color="#ffffff" stop-opacity="0.04"/>
+  </linearGradient>
+  <linearGradient id="ridgeA" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2a4560"/><stop offset="1" stop-color="#0d1520"/></linearGradient>
+  <linearGradient id="ridgeB" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1b2e42"/><stop offset="1" stop-color="#0b0f15"/></linearGradient>
+  <filter id="soft" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="6"/></filter>
+</defs><clipPath id="c"><rect width="256" height="256" rx="56"/></clipPath><rect width="256" height="256" rx="56" fill="url(#glow)"/>
+<rect x="1.5" y="1.5" width="253" height="253" rx="54.5" fill="none" stroke="url(#rim)" stroke-width="3"/><g clip-path="url(#c)"><path d="M0 200 L40 172 L70 186 L104 160 L140 182 L176 156 L212 178 L256 164 V256 H0Z" fill="url(#ridgeA)"/>
+<path d="M0 222 L36 206 L78 218 L120 198 L162 214 L204 200 L256 212 V256 H0Z" fill="url(#ridgeB)"/></g><g transform="translate(44 32) scale(7)" fill="none" stroke="#e8eef5" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="7"/><path d="M12 6v4"/></g></svg>

@@ -1,0 +1,124 @@
+{
+  "clock": {
+    "note": "pcap stamps are driver UTC microseconds. native QPC brackets precise UTC for joining host observations; see timing.anchor_summary and the clock journal for uncertainty.",
+    "qpc": 86637763253,
+    "qpc_frequency": 10000000,
+    "started_local": "2026-10-07 20:30:42",
+    "system_us": 1791397842059975
+  },
+  "counts": {
+    "pcap_bytes": 2685,
+    "pcap_records": 53,
+    "reports": 49
+  },
+  "decoder": {
+    "WindowsDescriptor": {
+      "reports": {
+        "0": [
+          {
+            "offset": 8,
+            "width": 16,
+            "signed": true
+          },
+          {
+            "offset": 24,
+            "width": 16,
+            "signed": true
+          }
+        ]
+      },
+      "report_ids": false,
+      "buttons": {
+        "0": {
+          "offset": 0,
+          "width": 1,
+          "signed": false
+        }
+      }
+    }
+  },
+  "health": {
+    "ended": false,
+    "error": null,
+    "pairing_valid": true,
+    "records": 54,
+    "reports": 50,
+    "serial_dropped": 0,
+    "timestamp_regressions": 0
+  },
+  "box": null,
+  "observers": {
+    "complete": true,
+    "error": null,
+    "schema": "motion-bench.observers.v1"
+  },
+  "outcome": "interrupted",
+  "paired": {
+    "absolute_transport_delay_known": false,
+    "input_rows": 0,
+    "note": "the input csv holds what the box saw on usb3 during this recording, on the host chip's clock. box_us = wire t_us + shift_us. null when the watch was off or a clock was never seen.",
+    "receipt_alignment": null,
+    "shift_us": null
+  },
+  "participants": [
+    {
+      "error": null,
+      "id": "observers",
+      "outcome": "complete"
+    },
+    {
+      "error": null,
+      "id": "recording_control",
+      "outcome": "complete"
+    }
+  ],
+  "reason": null,
+  "recording_control": {
+    "complete": true,
+    "error": null,
+    "schema": "motion-bench.recording-control.v1"
+  },
+  "root": "test",
+  "schema": "motion-bench.recording.v2",
+  "selection": {
+    "address": 31,
+    "advertised_period_us": {
+      "full_speed": 1000,
+      "high_speed": 125
+    },
+    "b_interval": 1,
+    "bus": 1,
+    "endpoint": 129,
+    "interface_class": [
+      3,
+      1,
+      2
+    ],
+    "kind": "mouse",
+    "max_packet": 8,
+    "note": "records for this device only, written verbatim. other devices on the root hub were dropped and never reached disk.",
+    "payload_bytes": 0,
+    "pid": "0x11d9",
+    "vid": "0x373b"
+  },
+  "stop_reason": "capture_stop",
+  "timing": {
+    "anchor_summary": {
+      "discontinuities": 0,
+      "max_bracket_us": 1.15,
+      "max_mapping_change_us": 0.5,
+      "samples": 2
+    },
+    "anchors": "373b11d9-20261007-203042-1791397842059975.clocks.jsonl",
+    "hardware_bus_timestamps": false,
+    "host_clock": "qpc",
+    "host_qpc_frequency": 10000000,
+    "mapping_discontinuity_threshold_us": 1000,
+    "medius_receipt_observation": "anybox Stamp.received_qpc, taken as anybox dequeues the event from the medius SDK; utc mapped from it",
+    "motion_csv_clock": "USBPcap relative microseconds, in the column ABCurves' wire_to_csv calls qpc",
+    "pcap_clock": "usbpcap_driver_utc_microseconds",
+    "raw_input_timestamps": "receipt batches, not hardware timestamps",
+    "schema": "motion-bench.timing.v1"
+  },
+  "tool": "motion-bench 0.2.17"
+}

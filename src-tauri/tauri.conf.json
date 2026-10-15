@@ -1,0 +1,49 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Motion Bench",
+  "version": "0.3.0",
+  "identifier": "app.motionbench.desktop",
+  "build": {
+    "beforeDevCommand": "bun run dev",
+    "beforeBuildCommand": "bun run build",
+    "devUrl": "http://localhost:1420",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "windows": [
+      {
+        "label": "main",
+        "title": "Motion Bench",
+        "width": 1440,
+        "height": 1000,
+        "minWidth": 1000,
+        "minHeight": 720,
+        "dragDropEnabled": true
+      }
+    ],
+    "security": {
+      "csp": "default-src 'self'; connect-src ipc: http://ipc.localhost; style-src 'self' 'unsafe-inline'; img-src 'self' asset: http://asset.localhost data:"
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["nsis"],
+    "resources": [
+      "runtime/*.dll",
+      "runtime/*.txt",
+      "runtime/directml/*.dll",
+      "runtime/directml/*.txt"
+    ],
+    "shortDescription": "USB mouse firmware comparison bench",
+    "category": "DeveloperTool",
+    "icon": ["icons/32x32.png", "icons/128x128.png", "icons/128x128@2x.png", "icons/icon.ico"]
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDNCMEQ4OEYwQzg2MjA2M0YKUldRL0JtTEk4SWdOTzU2NkgyWXF3M0taOU8zN2lvVjFoMzZCV01QWXMrZC9QWXgzT3o2QlNraHYK",
+      "endpoints": [
+        "https://github.com/etherealrl/motionbench/releases/latest/download/latest.json"
+      ]
+    }
+  }
+}

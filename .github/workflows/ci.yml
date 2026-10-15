@@ -1,0 +1,76 @@
+name: ci
+
+# a push to main only runs it here, a fork gets it on its pull requests
+on:
+  workflow_dispatch:
+  pull_request:
+  push:
+    branches: [main]
+  release:
+    types: [published]
+
+# a new push makes the run for the one before it pointless
+concurrency:
+  group: ci-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  check:
+    if: github.event_name != 'release' && (github.event_name != 'push' || github.repository == 'etherealrl/motionbench')
+    runs-on: windows-latest
+    env:
+      # nobody debugs a CI build, and without the debug info it builds faster and the cache is way smaller
+      CARGO_PROFILE_DEV_DEBUG: 0
+    steps:
+      - uses: actions/checkout@v5
+      - uses: oven-sh/setup-bun@v2
+      # rustup reads rust-toolchain.toml and installs the pinned toolchain with rustfmt and clippy
+      - run: rustup show active-toolchain
+      # the compiled dependencies are most of the time this job takes
+      - uses: Swatinem/rust-cache@v2
+      - run: bun install --frozen-lockfile
+      # the desktop crate bundles these files, so it doesn't build without them
+      - run: powershell -NoProfile -ExecutionPolicy Bypass -File tools/vision/setup-vision.ps1
+      - run: bash scripts/check.sh
+        shell: bash
+
+  # what people download is built here from the release's own commit, never on someone's machine. no cache here,
+  # so nothing from an earlier build can end up in it
+  installer:
+    if: github.event_name == 'release'
+    runs-on: windows-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event.release.tag_name }}
+      - uses: oven-sh/setup-bun@v2
+      - run: rustup show active-toolchain
+      - run: bun install --frozen-lockfile
+      # the pinned ONNX Runtime and DirectML the installer bundles, checked against their hashes
+      - run: powershell -NoProfile -ExecutionPolicy Bypass -File tools/vision/setup-vision.ps1
+      # the update files are signed with the key the app checks them against, a local build skips them so it
+      # doesn't need the key
+      - run: bun run tauri build --config '{"bundle":{"createUpdaterArtifacts":true}}'
+        shell: bash
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+      # latest.json is what the app reads to find a newer release, through the latest release's download link
+      - shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.event.release.tag_name }}
+          NOTES: ${{ github.event.release.body }}
+        run: |
+          version="${TAG#v}"
+          dir=target/release/bundle/nsis
+          exe="MotionBench_${version}_x64-setup.exe"
+          mv "$dir/Motion Bench_${version}_x64-setup.exe" "$dir/$exe"
+          mv "$dir/Motion Bench_${version}_x64-setup.exe.sig" "$dir/$exe.sig"
+          jq -n --arg version "$version" --arg notes "$NOTES" --arg signature "$(cat "$dir/$exe.sig")" \
+            --arg url "https://github.com/$GITHUB_REPOSITORY/releases/download/$TAG/$exe" \
+            '{version: $version, notes: $notes, pub_date: (now | todate),
+              platforms: {"windows-x86_64": {signature: $signature, url: $url}}}' > latest.json
+          gh release upload "$TAG" "$dir/$exe" "$dir/$exe.sig" latest.json --clobber

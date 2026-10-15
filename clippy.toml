@@ -1,0 +1,4 @@
+# a poisoned lock is recovered with `LockExt::locked`, never unwrapped into a second panic
+disallowed-methods = [
+  { path = "std::sync::Mutex::lock", reason = "use motion_bench::sync::LockExt::locked" },
+]

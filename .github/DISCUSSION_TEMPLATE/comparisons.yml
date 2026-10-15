@@ -1,0 +1,65 @@
+body:
+  - type: markdown
+    attributes:
+      value: |
+        thanks for sharing it. a result means more with a few recordings a side made one after the other (A, B, A, B), and even more next to a control, so the same condition split in two. [comparing two conditions](https://github.com/etherealrl/motionbench/blob/main/docs/comparing.md) has the details, and if you're not sure about something just say so
+  - type: textarea
+    id: compared
+    attributes:
+      label: what you compared
+      description: the baseline and the candidate, and the one thing that changed between them
+      placeholder: my mouse plugged in directly against the same mouse through a Medius with the renderer on
+    validations:
+      required: true
+  - type: input
+    id: mouse
+    attributes:
+      label: the mouse, its polling rate and DPI
+      placeholder: Logitech G Pro X Superlight, 1000 Hz, 800 DPI
+    validations:
+      required: true
+  - type: input
+    id: box
+    attributes:
+      label: the box and its firmware
+      description: and its settings when they matter, like the render mode or the emit pace
+      placeholder: no box, or Medius 3.4.5 with Despiked and render physical movement on
+  - type: input
+    id: software
+    attributes:
+      label: software that moves the mouse
+      description: what it is and its settings, if one is part of the comparison
+  - type: input
+    id: task
+    attributes:
+      label: the game or scenario, sensitivity and FOV
+      placeholder: AimLab Gridshot Ultimate, 0.5 with Valorant scaling, 103
+  - type: dropdown
+    id: features
+    attributes:
+      label: features
+      options:
+        - Texture (19 features)
+        - Trajectory (14 features)
+        - Full (49 features)
+    validations:
+      required: true
+  - type: input
+    id: result
+    attributes:
+      label: recordings a side and what you got
+      description: AUC, p and the interval as Compare shows them, and the control's if you ran one
+      placeholder: 5 and 5, AUC 0.91, p 0.008, control AUC 0.52 p 0.84
+    validations:
+      required: true
+  - type: textarea
+    id: notes
+    attributes:
+      label: anything else
+      description: a screenshot of the result, the exported JSON, or what you think it means
+  - type: checkboxes
+    id: recordings
+    attributes:
+      label: the recordings
+      options:
+        - label: i can share the recordings if someone asks (they're only the mouse's reports, nothing else from the PC)
