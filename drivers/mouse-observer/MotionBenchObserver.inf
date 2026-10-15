@@ -1,0 +1,57 @@
+[Version]
+Signature="$WINDOWS NT$"
+Class=Extension
+ClassGuid={e2f84ce7-8efa-411c-aa69-97454ca4cb57}
+ExtensionId={bc57d6ea-0485-430f-9f15-a3e8136daa49}
+Provider=%Provider%
+DriverVer=10/02/2026,0.2.9.0
+CatalogFile=MotionBenchObserver.cat
+PnpLockdown=1
+
+[Manufacturer]
+%Provider%=Models,NTamd64.10.0...19041
+
+[Models.NTamd64.10.0...19041]
+%Device%=Install,HID\MOTION_BENCH_SELECT_EXACT_MOUSE_HARDWARE_ID
+
+[Install.NT]
+CopyFiles=DriverFiles
+
+[Install.NT.Services]
+AddService=MotionBenchObserver,0,Service
+
+[Install.NT.Filters]
+AddFilter=MotionBenchObserver,,Filter
+
+[Install.NT.Wdf]
+KmdfService=MotionBenchObserver,Wdf
+
+[Wdf]
+KmdfLibraryVersion=1.15
+
+[Filter]
+FilterPosition=Upper
+
+[Service]
+DisplayName=%Device%
+ServiceType=1
+StartType=3
+ErrorControl=1
+ServiceBinary=%13%\MotionBenchObserver.sys
+
+[DriverFiles]
+MotionBenchObserver.sys
+
+[DestinationDirs]
+DriverFiles=13
+
+[SourceDisksNames]
+1=%Disk%,,,
+
+[SourceDisksFiles]
+MotionBenchObserver.sys=1
+
+[Strings]
+Provider="Motion Bench"
+Device="Motion Bench read-only mouse observer"
+Disk="Motion Bench observer package"

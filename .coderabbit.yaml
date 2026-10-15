@@ -1,0 +1,32 @@
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+language: en-US
+reviews:
+  profile: chill
+  request_changes_workflow: false
+  high_level_summary: true
+  poem: false
+  auto_review:
+    enabled: true
+    drafts: false
+  pre_merge_checks:
+    # a comment only goes where it says why, so most functions rightly have none
+    docstrings:
+      mode: "off"
+  path_instructions:
+    - path: "{src,src-tauri}/**/*.rs"
+      instructions: |
+        Motion Bench records a mouse's USB reports and compares conditions with ABCurves' judges. check that:
+        - raw evidence is never changed or thrown away, and a failed recording stays distinguishable from a good one
+        - a score or a claim never looks more certain than the recordings behind it
+        - the judges match ABCurves at the pinned revision, a change to them says how that was checked
+        - comments only say why, never what the next line does
+        - tests live in <module>/tests.rs, never inline
+    - path: "ui/**"
+      instructions: |
+        the UI uses the existing shadcn/Radix components and the spacing tokens in ui/style.css, no raw colors or pixel spacing.
+        a number that matters says what it means, and nothing makes a result look more conclusive than it is
+    - path: "**/*.md"
+      instructions: |
+        flag claims the code or the recordings don't back, like a box or a setting checked on hardware when it wasn't
+chat:
+  auto_reply: true

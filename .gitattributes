@@ -1,0 +1,5 @@
+# every checkout gets LF, Windows included, since the formatter wants it and git runs the hooks and
+# scripts with sh and bash, which read a carriage return as part of the command
+* text=auto eol=lf
+# Windows' driver tools read an INF the Windows way
+*.inf text eol=crlf

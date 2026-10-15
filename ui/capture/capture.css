@@ -1,0 +1,78 @@
+.status-strip {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--spacing-inline);
+}
+/* two rows: where the reports come from, then recording them */
+.capture-session {
+  display: grid;
+  gap: var(--spacing-group);
+  padding: var(--spacing-block);
+}
+.session-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--spacing-row) var(--spacing-group);
+}
+.usb-root {
+  flex: 1 1 --spacing(48);
+  min-width: 0;
+}
+.device-picker {
+  display: flex;
+  flex: 2 1 --spacing(72);
+  flex-direction: column;
+  gap: var(--spacing-inline);
+  min-width: 0;
+  font-size: var(--text-sm);
+  color: var(--color-muted-foreground);
+}
+.record-row {
+  align-items: center;
+  padding-top: var(--spacing-group);
+  border-top: 1px solid var(--color-border);
+  font-variant-numeric: tabular-nums;
+}
+.record-row > p {
+  margin: 0;
+}
+.control-note {
+  margin: 0;
+  color: var(--color-muted-foreground);
+  font-size: var(--text-xs);
+  overflow-wrap: anywhere;
+}
+.range-label {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--spacing-inline);
+}
+.status-diagnostics {
+  width: 380px;
+  max-height: calc(var(--radix-popover-content-available-height) / var(--ui-scale, 1));
+  overflow-y: auto;
+}
+.status-diagnostics .readout {
+  grid-template-columns: var(--label-column) minmax(0, 1fr);
+}
+.live-empty {
+  margin-top: var(--spacing-row);
+}
+.device-picker-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--spacing-row);
+}
+/* the box picker beside Connect in the section header */
+.box-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-inline);
+}
+.box-actions > :first-child {
+  width: --spacing(56);
+}

@@ -1,0 +1,69 @@
+name: something's wrong
+description: Motion Bench does something it shouldn't, crashes, or a number looks off
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        thanks for taking the time. the more exact this is, the faster it gets fixed, and if you're not sure about something just say so. for a comparison you want to talk about, the Discussions are a better place
+  - type: input
+    id: version
+    attributes:
+      label: Motion Bench version and Windows
+      placeholder: 0.3.0 on Windows 11 24H2
+    validations:
+      required: true
+  - type: input
+    id: mouse
+    attributes:
+      label: the mouse and its polling rate
+      placeholder: Logitech G Pro X Superlight, 1000 Hz
+    validations:
+      required: true
+  - type: dropdown
+    id: box
+    attributes:
+      label: box
+      description: whatever the mouse goes through, if anything
+      options:
+        - no box
+        - Medius
+        - MAKCU
+        - Ferrum
+        - YSC 8K
+        - other
+    validations:
+      required: true
+  - type: dropdown
+    id: targets
+    attributes:
+      label: target capture
+      options:
+        - wasn't on
+        - TensorRT
+        - CUDA
+        - DirectML
+        - CPU
+  - type: textarea
+    id: what
+    attributes:
+      label: what happened, and what you expected instead
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: how to make it happen
+      description: the steps, from opening the app
+  - type: textarea
+    id: error
+    attributes:
+      label: the error, word for word
+      description: if Motion Bench showed you one
+      render: text
+  - type: checkboxes
+    id: recording
+    attributes:
+      label: the recording
+      options:
+        - label: i can share the recording it happened with if it helps (it's only your mouse's reports, nothing else from your PC)

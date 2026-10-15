@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: share a comparison
+    url: https://github.com/etherealrl/motionbench/discussions/categories/comparisons
+    about: what you compared and what you got, so other people can see it and talk about it
+  - name: ask a question
+    url: https://github.com/etherealrl/motionbench/discussions/categories/q-a
+    about: how to set something up, or what a result means
