@@ -292,37 +292,52 @@ fn a_recordings_folder_is_saved_whole_and_a_partial_path_is_refused() {
 }
 
 #[test]
-fn projections_are_saved_by_name_and_a_bad_one_changes_nothing() {
+fn a_sensitivity_is_saved_per_game_and_a_bad_one_changes_nothing() {
     let dir = tempfile::tempdir().unwrap();
     let (store, path) = store(&dir);
-    let valorant = Projection {
-        name: "Valorant".into(),
-        sensitivity: 0.35,
-        fov: 103.0,
-        fov_axis: vision::FovAxis::Horizontal,
-        yaw: 0.07,
-        pitch: 0.07,
-    };
     store
-        .update(|s| s.targets.projections = vec![valorant.clone()])
+        .update(|s| {
+            s.targets.sensitivities.insert("valorant".into(), 0.35);
+        })
         .unwrap();
     assert_eq!(
-        Store::open(path.clone()).get().targets.projections,
-        vec![valorant.clone()]
+        Store::open(path).get().targets.sensitivities["valorant"],
+        0.35
     );
-    for bad in [
-        // a second one by the same name
-        vec![valorant.clone(), valorant.clone()],
-        vec![Projection {
-            name: " Valorant".into(),
-            ..valorant.clone()
-        }],
-        vec![Projection {
-            fov: 179.0,
-            ..valorant.clone()
-        }],
-    ] {
-        assert!(store.update(|s| s.targets.projections = bad).is_err());
+    for (game, sensitivity) in [("", 1.0), ("cs2", 0.0), ("cs2", f64::NAN)] {
+        assert!(
+            store
+                .update(|s| {
+                    s.targets.sensitivities.insert(game.into(), sensitivity);
+                })
+                .is_err()
+        );
     }
-    assert_eq!(store.get().targets.projections, vec![valorant]);
+    assert_eq!(store.get().targets.sensitivities.len(), 1);
+}
+
+#[test]
+fn settings_from_0_3_1_with_saved_projections_load_without_a_notice() {
+    let mut old = serde_json::to_value(Settings::default()).unwrap();
+    old["targets"] = json!({"start_on_launch": false, "projections": [{"name": "CS2"}]});
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("config.json");
+    std::fs::write(&path, old.to_string()).unwrap();
+    let store = Store::open(path);
+    assert!(store.notice().is_none());
+    assert!(store.get().targets.sensitivities.is_empty());
+}
+
+#[test]
+fn the_ui_names_every_fov_axis_the_way_native_reads_it() {
+    for axis in ["horizontal", "vertical", "horizontal_4x3"] {
+        let mut vision = serde_json::to_value(vision::Config::default()).unwrap();
+        vision["fov_axis"] = json!(axis);
+        let mut settings = Settings::default();
+        patch(json!({ "vision": vision })).apply(&mut settings);
+        assert_eq!(
+            serde_json::to_value(settings.vision.fov_axis).unwrap(),
+            axis
+        );
+    }
 }

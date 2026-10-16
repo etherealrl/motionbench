@@ -16,7 +16,7 @@ an aim trainer scenario with static targets is the easy case. the targets are es
 
 1. in Capture, pick your mouse and check that movement and left clicks show up
 2. in Capture setup, open Target capture, pick the model with Browse, name the scenario and pick the display. a recording without a scenario name gets no target events
-3. set the projection to what the game uses. Preset fills in a game's yaw and pitch, and its FOV when the game fixes it (Valorant, CS2), then type your sensitivity and, if the game lets you change it, your FOV. the FOV can be the horizontal one, the vertical one, or the 4:3 one the Source games (CS2, Apex) show in their settings, whichever the game gives you, and the description under it says what that is along the other axes on your display. the save button keeps the whole projection under a name, so switching games later is one pick
+3. pick your game under Projection, which fills in its FOV, yaw and pitch (Valorant, CS2, Apex and Overwatch 2 for now), then type your sensitivity, and your FOV too if the game lets you change it (Apex and Overwatch 2). the save button keeps that sensitivity for the game, so picking it again later brings it back. the game's numbers are under Game numbers if you're curious, and the FOV says what it is along the other axes on your display
 4. start target capture and wait until it's ready. a recording started before that keeps its USB data but has no target events, and so does one cut short by stopping capture or closing the app
 5. record like usual. the trials get built when the recording is saved, and Runs tells you why if a recording ended up with none
 

@@ -55,7 +55,7 @@ the features decide what the judges look at. the app calls them Texture (19 feat
 this tells you whether going through a passthrough box changes anything the judges can see
 
 1. plug the mouse straight into the PC and record your normal movement, 5 times or more
-2. plug the mouse into the box and BOTH of the box's ports into this PC, the one it sends the mouse through (that's what gets recorded) and its COM port (that's how the app talks to it). start capture again and pick the box's output (moving the mouse helps you find it), and record the same way
+2. plug the mouse into the box and the port it sends the mouse through into this PC, that's what gets recorded. its COM port can go into this PC too so the app can talk to the box, but the comparison doesn't need it. start capture again and pick the box's output (moving the mouse helps you find it), and record the same way
 3. alternate between the two setups, even if replugging is annoying, because that's what the rules above are about
 4. compare with Separate recordings and Texture19, the direct recordings as baseline
 
@@ -80,8 +80,8 @@ if you want to know what the box does to your movement rather than whether it ca
 
 this is the one where target capture matters the most, because an assist acts on targets, and Texture19 alone can miss it
 
-1. everything runs on this one PC, since the app has to record the box's output and see the screen at the same time. if the program is usually set up on a second PC, run it in 1PC mode instead, most of them can point at localhost or something like that
-2. the box's COM port can only be open in one program at a time and the program needs it, so press Disconnect in the box's section of Capture setup (or start the program first, then Motion Bench just says the port is taken). Motion Bench doesn't need the box for this comparison, the USB capture and target capture are enough. the recording button goes through the box though, so you start and stop from the app and crop the edges. do it the same way on the side without the program too, so being connected to the box isn't a second thing that changes
+1. Motion Bench runs on the PC with the game, since it records the box's output and watches the screen there. the program can stay where it usually is, so a 2PC setup works as it is, with the box's COM port in the second PC
+2. Motion Bench doesn't need the box's COM port for this comparison, the USB capture and target capture are enough. if the program runs on this PC too, the port can only be open in one program at a time, so press Disconnect in the box's section of Capture setup (or start the program first, then Motion Bench just says the port is taken). the recording button goes through the box though, so without it you start and stop from the app and crop the edges. do it the same way on the side without the program too, so being connected to the box isn't a second thing that changes
 3. set up [target capture](target-capture.md) for your game and check the trials come out (Runs shows why a recording has none)
 4. the game's sensitivity and FOV have to match what's in target capture, on BOTH sides. if they don't, the trials are wrong on one side and the judges will happily separate that instead
 5. keep the program's settings the same for every candidate recording, and write them in the recording names

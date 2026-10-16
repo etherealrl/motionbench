@@ -19,6 +19,8 @@ use std::{
 pub enum FovAxis {
     Horizontal,
     Vertical,
+    // snake_case alone would say horizontal4x3
+    #[serde(rename = "horizontal_4x3", alias = "horizontal4x3")]
     Horizontal4x3,
 }
 

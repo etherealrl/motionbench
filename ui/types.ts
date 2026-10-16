@@ -516,7 +516,8 @@ export interface AppSettings {
 }
 export interface TargetSettings {
   start_on_launch: boolean;
-  projections: Projection[];
+  /** your sensitivity in each game, by the game's id */
+  sensitivities: Record<string, number>;
 }
 /** what the ui may change, each section whole */
 export interface SettingsPatch {
@@ -546,15 +547,6 @@ export interface ExperimentStatus {
 }
 /** which way across the screen a FOV is measured, 4:3 being the width of a 4:3 screen as tall */
 export type FovAxis = "horizontal" | "vertical" | "horizontal_4x3";
-/** a game's projection saved by name */
-export interface Projection {
-  name: string;
-  sensitivity: number;
-  fov: number;
-  fov_axis: FovAxis;
-  yaw: number;
-  pitch: number;
-}
 export interface VisionConfig {
   provider: string;
   cuda_device: number;

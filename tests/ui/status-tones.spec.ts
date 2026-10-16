@@ -814,58 +814,52 @@ test("the recordings sort by name, date and box", async ({ page }) => {
   );
 });
 
-test("a game fills in the projection, the FOV reads along any axis, and a projection saves by name", async ({
-  page,
-}) => {
+test("a game fills in its numbers and keeps your sensitivity for it", async ({ page }) => {
   await open(page, {});
   const trigger = page.getByRole("button", { name: "Target capture", exact: true });
   if ((await trigger.getAttribute("aria-expanded")) !== "true") await trigger.click();
   const section = page.getByRole("region", { name: "Projection" });
-  const vision = () =>
+  const saved = () =>
     page.evaluate(() =>
       (
         window as unknown as {
           savedSettings: () => {
             vision: { fov: number; fov_axis: string; yaw: number; sensitivity: number };
-            targets: { projections: { name: string }[] };
+            targets: { sensitivities: Record<string, number> };
           };
         }
       ).savedSettings(),
     );
-  // the defaults are Valorant's, so it says so
-  await expect(section.getByLabel("Preset")).toHaveText("Valorant");
-  await expect(section.getByText("70.53° top to bottom on this 2560 × 1440 display")).toBeVisible();
-  await section.getByLabel("Preset").click();
+  // the defaults are Valorant's, so it says so, and its numbers are only there to look at
+  await expect(section.getByLabel("Game")).toHaveText("Valorant");
+  await page.getByText("Game numbers").click();
+  await expect(page.locator("#target-yaw")).toHaveAttribute("readonly", "");
+  await expect(page.locator("#target-fov")).toHaveAttribute("readonly", "");
+  await expect(page.getByText("70.53° top to bottom on this 2560 × 1440 display")).toBeVisible();
+  // save keeps the sensitivity for Valorant
+  await section.getByLabel("Sensitivity", { exact: true }).fill("0.35");
+  await section.getByLabel("Sensitivity", { exact: true }).blur();
+  await section.getByLabel("Save the sensitivity for Valorant").click();
+  await expect.poll(async () => (await saved()).targets.sensitivities).toEqual({ valorant: 0.35 });
+  await expect(section.getByLabel("Save the sensitivity for Valorant")).toBeDisabled();
+  // a game measured the 4:3 way
+  await section.getByLabel("Game").click();
   await page.getByRole("option", { name: "Counter-Strike 2" }).click();
   await expect
-    .poll(async () => (await vision()).vision)
-    .toMatchObject({ fov: 90, fov_axis: "horizontal_4x3", yaw: 0.022, sensitivity: 1.6 });
+    .poll(async () => (await saved()).vision)
+    .toMatchObject({ fov: 90, fov_axis: "horizontal_4x3", yaw: 0.022, sensitivity: 0.35 });
   await expect(
-    section.getByText("106.26° across and 73.74° top to bottom", { exact: false }),
+    page.getByText("106.26° across and 73.74° top to bottom", { exact: false }),
   ).toBeVisible();
-  // the same view said along the height
-  await section.getByLabel("FOV measured").click();
-  await page.getByRole("option", { name: "Vertical" }).click();
-  await expect.poll(async () => (await vision()).vision.fov).toBeCloseTo(73.74, 2);
-  // CS2's numbers still, said another way
-  await expect(section.getByLabel("Preset")).toHaveText("Custom");
-  await section.getByLabel("Save this projection").click();
-  const dialog = page.getByRole("dialog", { name: "Save projection" });
-  await dialog.getByLabel("Name").fill("CS2 1.6");
-  await dialog.getByRole("button", { name: "Save" }).click();
-  await expect
-    .poll(async () => (await vision()).targets.projections.map((p) => p.name))
-    .toEqual(["CS2 1.6"]);
-  await expect(section.getByLabel("Preset")).toHaveText("CS2 1.6");
-  await section.getByLabel("Delete CS2 1.6").click();
-  await expect.poll(async () => (await vision()).targets.projections).toEqual([]);
-  // switching back gives CS2's own number again, so the game still fits
-  await section.getByLabel("FOV measured").click();
-  await page.getByRole("option", { name: "4:3" }).click();
-  await expect(section.getByLabel("Preset")).toHaveText("Counter-Strike 2");
-  // a game whose FOV you pick keeps the view, said its own way, here across the whole width
-  await section.getByLabel("Preset").click();
+  await section.getByLabel("Sensitivity", { exact: true }).fill("1.6");
+  await section.getByLabel("Sensitivity", { exact: true }).blur();
+  // going back brings Valorant's sensitivity back
+  await section.getByLabel("Game").click();
+  await page.getByRole("option", { name: "Valorant" }).click();
+  await expect.poll(async () => (await saved()).vision.sensitivity).toBe(0.35);
+  // a game that lets you pick the FOV shows it to change
+  await section.getByLabel("Game").click();
   await page.getByRole("option", { name: "Overwatch 2" }).click();
-  await expect.poll(async () => (await vision()).vision.fov).toBeCloseTo(106.26, 2);
-  await expect(section.getByLabel("Preset")).toHaveText("Overwatch 2");
+  await expect(section.locator("#target-fov")).not.toHaveAttribute("readonly", "");
+  await expect(page.getByRole("option", { name: /Aim Lab/ })).toHaveCount(0);
 });

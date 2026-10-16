@@ -79,8 +79,12 @@
 .run-actions {
   display: flex;
   align-items: center;
-  justify-content: flex-end;
   gap: var(--spacing-tight);
+}
+/* pushed right by a margin rather than justify-content, so buttons too wide for the column spill
+   to the right, where the table can measure them and widen it */
+.run-actions > :first-child {
+  margin-left: auto;
 }
 .crop-editor {
   display: grid;

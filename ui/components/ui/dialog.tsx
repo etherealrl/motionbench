@@ -36,10 +36,17 @@ function DialogOverlay({
   );
 }
 
+// a toast sits above every dialog, so pressing it isn't pressing outside the dialog
+const onToast = (event: { target: EventTarget | null; preventDefault: () => void }) => {
+  if (event.target instanceof Element && event.target.closest("[data-sonner-toaster]"))
+    event.preventDefault();
+};
+
 function DialogContent({
   className,
   children,
   showCloseButton = true,
+  onInteractOutside,
   ...props
 }: React.ComponentProps<typeof DialogPrimitive.Content> & {
   showCloseButton?: boolean;
@@ -53,6 +60,10 @@ function DialogContent({
           "fixed top-[50%] left-[50%] z-50 grid w-full max-w-[calc(100%-2rem)] translate-x-[-50%] translate-y-[-50%] gap-4 rounded-lg border bg-background p-6 shadow-lg duration-200 outline-none sm:max-w-lg",
           className,
         )}
+        onInteractOutside={(event) => {
+          onToast(event);
+          onInteractOutside?.(event);
+        }}
         {...props}
       >
         {children}

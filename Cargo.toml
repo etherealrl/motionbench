@@ -5,7 +5,7 @@ resolver = "2"
 
 [package]
 name = "motion-bench"
-version = "0.3.1"
+version = "0.3.2"
 default-run = "motion-bench-cli"
 edition = "2024"
 license = "CC-BY-NC-SA-4.0"

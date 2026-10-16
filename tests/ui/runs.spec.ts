@@ -423,3 +423,49 @@ test("the table's columns are dragged wider by their edges, remembered, and rese
   await page.keyboard.press("ArrowRight");
   expect(await width("Recording")).toBeGreaterThan(recording + 5);
 });
+
+test("a row's buttons stay in their own column, even dragged narrow", async ({ page }) => {
+  await page.setViewportSize({ width: 1100, height: 800 });
+  // the actions column remembered at a sliver of the table
+  await page.addInitScript(() =>
+    localStorage.setItem("table-columns:recordings", JSON.stringify([30, 15, 15, 15, 21, 4])),
+  );
+  await open(page);
+  const row = page.getByRole("row", { name: /second.pcap/ });
+  const actions = (await row.getByRole("cell").last().boundingBox())!;
+  for (const name of ["Inspect", "Crop and replay"]) {
+    const button = (await row.getByRole("button", { name, exact: true }).boundingBox())!;
+    expect(button.x).toBeGreaterThanOrEqual(actions.x - 1);
+  }
+  await page.screenshot({ path: "test-results/narrow-actions.png" });
+});
+
+test("a toast over an open dialog takes its own clicks and leaves the dialog open", async ({
+  page,
+}) => {
+  await open(page);
+  await page
+    .getByRole("row", { name: /first.pcap/ })
+    .getByRole("button", { name: "Crop", exact: true })
+    .click();
+  const dialog = page.getByRole("dialog", { name: "Crop" });
+  await expect(dialog).toBeVisible();
+  // a toast where sonner puts them, over the dialog's own buttons
+  await page.evaluate(() => {
+    const toaster = document.createElement("section");
+    toaster.setAttribute("data-sonner-toaster", "");
+    toaster.style.cssText = "position:fixed;inset:0;z-index:999999";
+    const close = document.createElement("button");
+    close.textContent = "Close toast";
+    close.style.cssText = "width:100%;height:100%";
+    close.onclick = () => close.setAttribute("data-pressed", "");
+    toaster.append(close);
+    document.body.append(toaster);
+  });
+  await page.getByRole("button", { name: "Close toast" }).click();
+  await expect(page.getByRole("button", { name: "Close toast" })).toHaveAttribute(
+    "data-pressed",
+    "",
+  );
+  await expect(dialog).toBeVisible();
+});

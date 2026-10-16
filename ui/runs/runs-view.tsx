@@ -85,7 +85,7 @@ export function RunsView({
       </div>
       {snapshot.runs.length ? (
         <section className="panel run-table">
-          <ResizableTable id="recordings" widen={{ 1: 1.75 }} aria-label="Recordings">
+          <ResizableTable id="recordings" widen={{ 1: 1.75 }} fit={5} aria-label="Recordings">
             <TableHeader>
               <TableRow>
                 {head("Recording", "name")}
