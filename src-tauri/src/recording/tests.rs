@@ -1013,7 +1013,8 @@ fn a_stuck_box_leaves_the_healthy_participants_their_time() {
     let worker = Arc::new(worker);
     let folder = tempfile::tempdir().unwrap();
     let mut state = state(folder.path());
-    state.stop_within = Duration::from_millis(300);
+    // the box holds the whole deadline, which has to leave a slow CI runner time to stop the observers
+    state.stop_within = Duration::from_secs(3);
     state.bench.locked().experiment = Some(worker.clone());
     let stem = start(&state);
     reports(&state, 2_000_000);

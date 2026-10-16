@@ -7,16 +7,19 @@ const smallest = 4;
 /** a table whose columns you can drag wider or narrower by their edges. the widths are shares of
  * the table, so it still fits when the window changes size, and they're remembered under `id`.
  * `widen` makes a column start wider than its content asks, by how many times, keyed by its index.
- * a double click on an edge goes back to the starting widths */
+ * a double click on an edge goes back to the starting widths. the column at `fit` never gets
+ * narrower than what's in it, taking the room from the others */
 export function ResizableTable({
   id,
   widen = {},
+  fit,
   className,
   children,
   ...props
 }: {
   id: string;
   widen?: Record<number, number>;
+  fit?: number;
 } & React.ComponentProps<typeof Table>) {
   const frame = useRef<HTMLDivElement>(null);
   const key = `table-columns:${id}`;
@@ -46,6 +49,19 @@ export function ResizableTable({
       setEdges(
         heads.slice(0, -1).map((th) => (th.getBoundingClientRect().right - box.left) * scale),
       );
+      if (fit === undefined) return;
+      // what spills out of the widest cell, measured inside it so a cell that fits measures 0
+      const cells = [...table.querySelectorAll(`tbody tr > :nth-child(${fit + 1}) > *`)];
+      const spill = Math.max(0, ...cells.map((inner) => inner.scrollWidth - inner.clientWidth));
+      if (spill <= 1) return;
+      // the others give up the room in proportion, so none of them gets squeezed to nothing
+      // never more than leaves the others their smallest, or a table narrower than the buttons
+      // would ask for room forever
+      const most = 100 - smallest * (widths.length - 1);
+      const need = Math.min(most, widths[fit] + (spill / table.offsetWidth) * 100);
+      if (need <= widths[fit]) return;
+      const rest = (100 - need) / (100 - widths[fit]);
+      setWidths(widths.map((w, i) => (i === fit ? need : w * rest)));
     };
     place();
     const observer = new ResizeObserver(place);

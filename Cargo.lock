@@ -2076,7 +2076,7 @@ dependencies = [
 
 [[package]]
 name = "motion-bench"
-version = "0.3.1"
+version = "0.3.2"
 dependencies = [
  "anybox-rs",
  "serde",
@@ -2087,7 +2087,7 @@ dependencies = [
 
 [[package]]
 name = "motion-bench-desktop"
-version = "0.3.1"
+version = "0.3.2"
 dependencies = [
  "anybox-rs",
  "hidapi",

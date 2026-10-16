@@ -40,20 +40,9 @@ pub struct Storage {
 #[serde(deny_unknown_fields)]
 pub struct Targets {
     pub start_on_launch: bool,
-    /// the projections saved by name, so switching games is one pick
+    /// your sensitivity in each game, by the game's id, so picking a game again brings it back
     #[serde(default)]
-    pub projections: Vec<Projection>,
-}
-/// a game's projection as it was saved
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct Projection {
-    pub name: String,
-    pub sensitivity: f64,
-    pub fov: f64,
-    pub fov_axis: vision::FovAxis,
-    pub yaw: f64,
-    pub pitch: f64,
+    pub sensitivities: std::collections::BTreeMap<String, f64>,
 }
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -240,30 +229,19 @@ impl Settings {
         {
             return Err("the recordings folder has to be a full path".into());
         }
-        let projections = &self.targets.projections;
-        for (i, saved) in projections.iter().enumerate() {
-            let name = saved.name.trim();
-            if name.is_empty() || name.chars().count() > 60 || name != saved.name {
-                return Err("a projection's name is 1 to 60 characters".into());
-            }
-            if projections[..i]
-                .iter()
-                .any(|other| other.name == saved.name)
-            {
-                return Err(format!("there's already a projection called {name}"));
+        let sensitivities = &self.targets.sensitivities;
+        for (game, &sensitivity) in sensitivities {
+            if game.is_empty() || game.len() > 40 {
+                return Err("a game's id is 1 to 40 characters".into());
             }
             vision::Config {
-                sensitivity: saved.sensitivity,
-                fov: saved.fov,
-                fov_axis: saved.fov_axis,
-                yaw: saved.yaw,
-                pitch: saved.pitch,
+                sensitivity,
                 ..vision::Config::default()
             }
             .validate()?;
         }
-        if projections.len() > 100 {
-            return Err("there are more than 100 saved projections".into());
+        if sensitivities.len() > 100 {
+            return Err("there are more than 100 saved sensitivities".into());
         }
         self.vision.validate()
     }
@@ -494,10 +472,11 @@ fn merge(saved: &Value) -> (Settings, Vec<String>) {
 fn usable(settings: &Value) -> bool {
     serde_json::from_value::<Settings>(settings.clone()).is_ok_and(|s| s.validate().is_ok())
 }
-/// where every value that isn't an object sits in `value`
+/// where every value that isn't an object sits in `value`. an empty one, like a map of saved
+/// values that starts empty, is a value of its own
 fn leaves(value: &Value, at: String) -> Vec<String> {
     match value {
-        Value::Object(map) => map
+        Value::Object(map) if !map.is_empty() => map
             .iter()
             .flat_map(|(key, inner)| leaves(inner, format!("{at}/{key}")))
             .collect(),

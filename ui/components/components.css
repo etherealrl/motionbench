@@ -270,3 +270,8 @@
 .column-edge:focus-visible::after {
   opacity: 1;
 }
+
+/* an open dialog turns pointer events off for everything outside it, the toasts above it included */
+[data-sonner-toaster] {
+  pointer-events: auto;
+}

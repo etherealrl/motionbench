@@ -32,7 +32,7 @@ everything runs on your PC, nothing gets uploaded. every recording is kept with 
 ## what you need
 
 - Windows and [USBPcap](https://desowin.org/usbpcap/), which is what sees the mouse's reports
-- a passthrough box if you want to test one, plugged into the PC by BOTH of its ports, the one it sends the mouse through and its COM port. anything [anybox](https://github.com/etherealrl/anybox) supports works (Medius, MAKCU, Ferrum, YSC8K), and on a Medius you also get its renderer settings and what the box saw on its side of the mouse
+- a passthrough box if you want to test one. the port it sends the mouse through goes into the PC Motion Bench runs on, since that's what gets recorded. its COM port can go into that PC too, so the app can talk to it (the record button, and on a Medius its renderer settings and what the box saw on its side of the mouse), or into a second PC that runs whatever you're testing, 2PC setups work fine. anything [anybox](https://github.com/etherealrl/anybox) supports works (Medius, MAKCU, Ferrum, YSC8K)
 - target capture is optional. it watches the screen for targets with an ONNX model you bring, which the judges need for the shape of your aim on top of its texture. an NVIDIA GPU makes it fast, though DirectML and the CPU work too
 - a game without an anticheat, obviously. AimLab is what we recommend, since you get one clear target and a scenario you can repeat as many times as you want, see [comparing](docs/comparing.md)
 

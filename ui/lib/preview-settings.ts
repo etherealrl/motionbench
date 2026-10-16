@@ -4,7 +4,7 @@ import type { AppSettings } from "@/types";
 export const previewSettings: AppSettings = {
   recording: { button: null },
   capture: { root: null, mouse: null },
-  targets: { start_on_launch: false, projections: [] },
+  targets: { start_on_launch: false, sensitivities: {} },
   aim: { speed: 2000, deadzone_counts: 12, button: 8 },
   vision: {
     provider: "CUDA",
