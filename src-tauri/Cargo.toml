@@ -1,6 +1,6 @@
 [package]
 name = "motion-bench-desktop"
-version = "0.3.2"
+version = "0.3.3"
 edition = "2024"
 
 [[bin]]
@@ -10,8 +10,12 @@ path = "src/main.rs"
 [features]
 # the aim controller and its experiment; the core's own developer tools with it
 developer-tools = ["motion-bench/developer-tools"]
+# the WebView's debugging port, which the end to end tests drive the app through. never in a release
+e2e = ["tauri/devtools", "dep:tauri-plugin-wdio-webdriver", "motion-bench/e2e"]
 
 [dependencies]
+# a WebDriver server inside the app for the end to end tests, only in the e2e build
+tauri-plugin-wdio-webdriver = { version = "1", optional = true }
 motion-bench = { path = ".." }
 tauri = { version = "2", features = [] }
 tauri-plugin-dialog = "2"

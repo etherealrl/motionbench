@@ -368,6 +368,9 @@ pub fn read_pcap<R: Read>(mut r: R, mut on_record: impl FnMut(Record<'_>)) -> io
 pub const BUFFER_BYTES: u32 = 8 << 20;
 
 pub fn usbpcapcmd() -> Option<PathBuf> {
+    if cfg!(feature = "e2e") {
+        return None;
+    }
     ["ProgramFiles", "ProgramFiles(x86)"]
         .iter()
         .filter_map(std::env::var_os)

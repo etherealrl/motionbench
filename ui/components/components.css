@@ -271,6 +271,12 @@
   opacity: 1;
 }
 
+/* a toast's action is the thing to do next, so it gets the brand blue like other main buttons. one
+   selector more than sonner's own, which it adds after the app's styles */
+[data-sonner-toaster] [data-sonner-toast][data-styled="true"] [data-button] {
+  background: var(--color-primary);
+  color: var(--color-primary-foreground);
+}
 /* an open dialog turns pointer events off for everything outside it, the toasts above it included */
 [data-sonner-toaster] {
   pointer-events: auto;

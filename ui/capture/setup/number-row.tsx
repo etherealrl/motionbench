@@ -15,7 +15,6 @@ export function NumberRow({
   update,
   description = help,
   after,
-  readOnly,
 }: {
   setting: NumberSetting;
   config: VisionConfig;
@@ -24,8 +23,6 @@ export function NumberRow({
   description?: ReactNode;
   /** a control that goes with the number, beside it */
   after?: ReactNode;
-  /** shown for whoever is curious, but it isn't yours to change */
-  readOnly?: boolean;
 }) {
   const [typed, setTyped] = useState<string | null>(null);
   const field = (
@@ -33,7 +30,6 @@ export function NumberRow({
       <InputGroupInput
         id={`target-${key}`}
         inputMode="decimal"
-        readOnly={readOnly}
         value={typed ?? String(Number(Number(config[key]).toFixed(decimals)))}
         onChange={(e) => setTyped(e.target.value)}
         onKeyDown={(e) => {

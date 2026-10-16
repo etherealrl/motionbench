@@ -75,8 +75,10 @@ export async function flushSettings(): Promise<boolean> {
   return done && flushSettings();
 }
 
-export function updateSettings(patch: SettingsPatch) {
-  queued = { ...queued, ...patch };
+/** a change to some sections, each whole. one made from what's shown at the time it's made, as a
+ * function of it, keeps a change made a moment before that the caller hasn't rendered yet */
+export function updateSettings(patch: SettingsPatch | ((shown: AppSettings) => SettingsPatch)) {
+  queued = { ...queued, ...(typeof patch === "function" ? patch(shown) : patch) };
   publish();
   clearTimeout(timer);
   timer = setTimeout(() => void flushSettings(), 300);

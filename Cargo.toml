@@ -5,7 +5,7 @@ resolver = "2"
 
 [package]
 name = "motion-bench"
-version = "0.3.2"
+version = "0.3.3"
 default-run = "motion-bench-cli"
 edition = "2024"
 license = "CC-BY-NC-SA-4.0"
@@ -19,6 +19,8 @@ path = "src/main.rs"
 developer-tools = []
 # exposes the test builders to the replay fixture generator, never part of a release
 testkit = []
+# the end to end tests' build sees no USBPcap, since starting USBPcapCMD asks for admin every time
+e2e = []
 
 [dependencies]
 # one API for the boxes, which re-exports the medius crate it drives (`anybox::medius`), so

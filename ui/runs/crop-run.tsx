@@ -1,11 +1,12 @@
 import { useEffect, useState, type CSSProperties } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { ArrowLeftToLine, ArrowRightToLine } from "lucide-react";
+import { ArrowLeftToLine, ArrowRightToLine, RotateCcw } from "lucide-react";
 import { Notice } from "@/components/notice";
 import { Button } from "@/components/ui/button";
 import { DialogFooter } from "@/components/ui/dialog";
 import { Slider } from "@/components/ui/slider";
 import { Items } from "@/components/inline";
+import { cn } from "@/lib/utils";
 import { Summary } from "@/components/summary";
 import { Timeline } from "@/charts/timeline";
 import type { Plot, Replay, Run } from "@/types";
@@ -102,10 +103,13 @@ function CropEditor({ run, onDone }: { run: Run; onDone: () => void }) {
   const { plot, value, setValue } = useWholePlot(run, setError);
   const { pending, save } = useSaveCrop(run, setError, onDone);
   const replay = useReplay(run);
+  const crowded = useCrowded(run);
   const playback = usePlayback(replayEnd(replay.replay));
   const end = plot ? length(plot) : 0;
   const whole = !!value && value[0] <= 0 && value[1] >= end - STEP / 2;
-  const { crop, cropAt } = linkReplay(value, setValue, plot, replay.replay, playback, end);
+  const { crop, cropAt, kept } = linkReplay(value, setValue, plot, replay.replay, playback, end);
+  // the replay's own track sets the crop, so it needs no slider of its own
+  const replayed = replay.has && !replay.error;
   return (
     <>
       <p className="field-description">
@@ -113,24 +117,19 @@ function CropEditor({ run, onDone }: { run: Run; onDone: () => void }) {
         files don't change
       </p>
       {replay.has && (
-        <ReplayScreen replay={replay.replay} error={replay.error} playback={playback} />
-      )}
-      {plot && value && (
-        <CropRange
-          run={run}
-          plot={plot}
+        <CropReplay
+          replay={replay}
+          playback={playback}
+          kept={kept}
+          crowded={crowded}
           value={value}
-          folded={replay.has}
-          onCrop={crop}
-          onCropAt={replay.replay ? cropAt : null}
+          onCropAt={cropAt}
         />
       )}
-      {!plot && !error && (
-        <p className="crop-loading field-description" aria-busy="true">
-          Loading the recording…
-        </p>
+      {plot && value && (
+        <CropRange crowded={crowded} plot={plot} value={value} replayed={replayed} onCrop={crop} />
       )}
-      {error && <Notice error>{error}</Notice>}
+      <CropStatus loading={!plot} error={error} />
       <CropFooter
         pending={pending}
         canReset={!!value && !whole}
@@ -139,6 +138,54 @@ function CropEditor({ run, onDone }: { run: Run; onDone: () => void }) {
         onSave={plot && value ? () => void save(plot, value, whole) : null}
       />
     </>
+  );
+}
+
+/** the recording loading, or why it couldn't be cropped */
+function CropStatus({ loading, error }: { loading: boolean; error: string | null }) {
+  if (error) return <Notice error>{error}</Notice>;
+  if (!loading) return null;
+  return (
+    <p className="crop-loading field-description" aria-busy="true">
+      Loading the recording…
+    </p>
+  );
+}
+
+/** the replay, its track marked with what the crop keeps and where there were several targets */
+function CropReplay({
+  replay,
+  playback,
+  kept,
+  crowded,
+  value,
+  onCropAt,
+}: {
+  replay: ReturnType<typeof useReplay>;
+  playback: ReturnType<typeof usePlayback>;
+  kept: [number, number] | null;
+  crowded: [number, number][];
+  value: number[] | null;
+  onCropAt: (edge: 0 | 1) => void;
+}) {
+  const shown = replay.replay;
+  return (
+    <ReplayScreen
+      replay={shown}
+      error={replay.error}
+      playback={playback}
+      kept={kept}
+      marks={
+        shown && (
+          <CrowdedMarks
+            spans={crowded}
+            className="replay-crowded"
+            at={(us) => ((us - shown.from_us) / 1000 / replayEnd(shown)) * 100}
+          />
+        )
+      }
+      below={value && <CropSummary value={value} onCropAt={onCropAt} />}
+    />
   );
 }
 
@@ -163,6 +210,7 @@ function CropFooter({
         disabled={!canReset || pending}
         onClick={onReset}
       >
+        <RotateCcw />
         Reset
       </Button>
       <Button variant="outline" disabled={pending} onClick={onCancel}>
@@ -175,30 +223,33 @@ function CropFooter({
   );
 }
 
-/** the crop over the whole recording's timeline, folded away when the replay is there */
+/** the crop over the whole recording's timeline, folded away when the replay is there, which
+ * also takes over the slider */
 function CropRange({
-  run,
+  crowded,
   plot,
   value,
-  folded,
+  replayed,
   onCrop,
-  onCropAt,
 }: {
-  run: Run;
+  crowded: [number, number][];
   plot: Plot;
   value: number[];
-  folded: boolean;
+  replayed: boolean;
   onCrop: (value: number[]) => void;
-  onCropAt: ((edge: 0 | 1) => void) | null;
 }) {
   const end = length(plot);
+  const fold = (
+    <TimelineFold
+      plot={plot}
+      folded={replayed}
+      onBrush={([from, to]) => onCrop([from, Math.min(end, to)])}
+    />
+  );
+  if (replayed) return <div className="crop-editor">{fold}</div>;
   return (
     <div className="crop-editor">
-      <TimelineFold
-        plot={plot}
-        folded={folded}
-        onBrush={([from, to]) => onCrop([from, Math.min(end, to)])}
-      />
+      {fold}
       <div className="crop-range">
         <Slider
           labels={["Crop start", "Crop end"]}
@@ -209,9 +260,12 @@ function CropRange({
           value={value}
           onValueChange={onCrop}
         />
-        <CrowdedMarks run={run} plot={plot} end={end} />
+        <CrowdedMarks
+          spans={crowded}
+          at={(us) => Math.min(100, Math.max(0, ((us - plot.from_us) / 1e6 / end) * 100))}
+        />
       </div>
-      <CropSummary value={value} onCropAt={onCropAt} />
+      <CropSummary value={value} onCropAt={null} />
     </div>
   );
 }
@@ -236,6 +290,14 @@ function linkReplay(
     }
     setValue(next);
   };
+  // the kept span in the replay's ms, for its track
+  const kept: [number, number] | null =
+    value && plot && replay
+      ? [
+          (plot.from_us + value[0] * 1e6 - replay.from_us) / 1000,
+          (plot.from_us + value[1] * 1e6 - replay.from_us) / 1000,
+        ]
+      : null;
   // the crop's edge set where the replay is
   const cropAt = (edge: 0 | 1) => {
     if (!value || !plot || !replay) return;
@@ -246,7 +308,7 @@ function linkReplay(
         : [value[0], Math.max(at, value[0] + STEP)],
     );
   };
-  return { crop, cropAt };
+  return { crop, cropAt, kept };
 }
 
 /** the whole recording's report intervals, folded away under their title and kept the way they
@@ -324,17 +386,12 @@ function length(plot: Plot) {
   return Math.ceil((plot.to_us - plot.from_us) / 1e6 / STEP) * STEP;
 }
 
-// where `us` falls on the slider's track
-function percent(plot: Plot, end: number, us: number) {
-  return Math.min(100, Math.max(0, ((us - plot.from_us) / 1e6 / end) * 100));
-}
-
-/** where target capture saw more than one target, marked on the track */
-function CrowdedMarks({ run, plot, end }: { run: Run; plot: Plot; end: number }) {
+/** where target capture saw more than one target, on the system clock. only a help for choosing,
+ * so the crop works without it */
+function useCrowded(run: Run) {
   const [spans, setSpans] = useState<[number, number][]>([]);
   useEffect(() => {
     let active = true;
-    // only a help for choosing, the crop works without it
     invoke<[number, number][]>("run_crowded", { id: run.id })
       .then((found) => active && setSpans(found))
       .catch(() => {});
@@ -342,19 +399,28 @@ function CrowdedMarks({ run, plot, end }: { run: Run; plot: Plot; end: number })
       active = false;
     };
   }, [run.id]);
+  return spans;
+}
+
+/** where target capture saw more than one target, marked on a track, `at` placing a system clock
+ * time on it in percent */
+function CrowdedMarks({
+  spans,
+  at,
+  className,
+}: {
+  spans: [number, number][];
+  at: (us: number) => number;
+  className?: string;
+}) {
   if (!spans.length) return null;
   return (
-    <div className="crop-crowded" aria-hidden>
+    <div className={cn("crop-crowded", className)} aria-hidden>
       {spans.map(([from, to]) => (
         <span
           key={from}
           title="more than one target on screen, a trial here can't count"
-          style={
-            {
-              "--from": percent(plot, end, from),
-              "--to": percent(plot, end, to),
-            } as CSSProperties
-          }
+          style={{ "--from": at(from), "--to": at(to) } as CSSProperties}
         />
       ))}
     </div>

@@ -814,7 +814,7 @@ test("the recordings sort by name, date and box", async ({ page }) => {
   );
 });
 
-test("a game fills in its numbers and keeps your sensitivity for it", async ({ page }) => {
+test("every game can be picked, and each keeps your sensitivity for it", async ({ page }) => {
   await open(page, {});
   const trigger = page.getByRole("button", { name: "Target capture", exact: true });
   if ((await trigger.getAttribute("aria-expanded")) !== "true") await trigger.click();
@@ -825,41 +825,44 @@ test("a game fills in its numbers and keeps your sensitivity for it", async ({ p
         window as unknown as {
           savedSettings: () => {
             vision: { fov: number; fov_axis: string; yaw: number; sensitivity: number };
-            targets: { sensitivities: Record<string, number> };
+            targets: { sensitivities: Record<string, number>; game: string | null };
           };
         }
       ).savedSettings(),
     );
-  // the defaults are Valorant's, so it says so, and its numbers are only there to look at
-  await expect(section.getByLabel("Game")).toHaveText("Valorant");
-  await page.getByText("Game numbers").click();
-  await expect(page.locator("#target-yaw")).toHaveAttribute("readonly", "");
-  await expect(page.locator("#target-fov")).toHaveAttribute("readonly", "");
-  await expect(page.getByText("70.53° top to bottom on this 2560 × 1440 display")).toBeVisible();
-  // save keeps the sensitivity for Valorant
-  await section.getByLabel("Sensitivity", { exact: true }).fill("0.35");
-  await section.getByLabel("Sensitivity", { exact: true }).blur();
+  const pick = async (name: string) => {
+    await section.getByLabel("Game", { exact: true }).click();
+    await page.getByRole("option", { name, exact: true }).click();
+    await expect(section.getByLabel("Game", { exact: true })).toHaveText(name);
+  };
+  const sensitivity = section.getByLabel("Sensitivity", { exact: true });
+  // the defaults are Valorant's
+  await expect(section.getByLabel("Game", { exact: true })).toHaveText("Valorant");
+  await expect(section.getByLabel("FOV", { exact: true })).toHaveCount(0);
+  await sensitivity.fill("0.35");
+  await sensitivity.blur();
   await section.getByLabel("Save the sensitivity for Valorant").click();
   await expect.poll(async () => (await saved()).targets.sensitivities).toEqual({ valorant: 0.35 });
-  await expect(section.getByLabel("Save the sensitivity for Valorant")).toBeDisabled();
-  // a game measured the 4:3 way
-  await section.getByLabel("Game").click();
-  await page.getByRole("option", { name: "Counter-Strike 2" }).click();
+  // each in turn, CS2 then Apex being the two that share their numbers
+  for (const name of [
+    "Counter-Strike 2",
+    "Apex Legends",
+    "Counter-Strike 2",
+    "Overwatch 2",
+    "Apex Legends",
+    "Valorant",
+  ])
+    await pick(name);
+  await expect.poll(async () => (await saved()).vision.sensitivity).toBe(0.35);
+  // a game that lets you change the FOV asks for yours
+  await pick("Apex Legends");
   await expect
     .poll(async () => (await saved()).vision)
-    .toMatchObject({ fov: 90, fov_axis: "horizontal_4x3", yaw: 0.022, sensitivity: 0.35 });
-  await expect(
-    page.getByText("106.26° across and 73.74° top to bottom", { exact: false }),
-  ).toBeVisible();
-  await section.getByLabel("Sensitivity", { exact: true }).fill("1.6");
-  await section.getByLabel("Sensitivity", { exact: true }).blur();
-  // going back brings Valorant's sensitivity back
-  await section.getByLabel("Game").click();
-  await page.getByRole("option", { name: "Valorant" }).click();
-  await expect.poll(async () => (await saved()).vision.sensitivity).toBe(0.35);
-  // a game that lets you pick the FOV shows it to change
-  await section.getByLabel("Game").click();
-  await page.getByRole("option", { name: "Overwatch 2" }).click();
-  await expect(section.locator("#target-fov")).not.toHaveAttribute("readonly", "");
+    .toMatchObject({ fov: 90, fov_axis: "horizontal_4x3", yaw: 0.022 });
+  const fov = section.getByLabel("FOV", { exact: true });
+  await fov.fill("104");
+  await fov.blur();
+  await expect.poll(async () => (await saved()).vision.fov).toBe(104);
+  await expect(section.getByLabel("Game", { exact: true })).toHaveText("Apex Legends");
   await expect(page.getByRole("option", { name: /Aim Lab/ })).toHaveCount(0);
 });

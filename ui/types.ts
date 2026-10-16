@@ -518,6 +518,8 @@ export interface TargetSettings {
   start_on_launch: boolean;
   /** your sensitivity in each game, by the game's id */
   sensitivities: Record<string, number>;
+  /** the game picked, since two games can share the same numbers */
+  game: string | null;
 }
 /** what the ui may change, each section whole */
 export interface SettingsPatch {

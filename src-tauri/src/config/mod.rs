@@ -43,6 +43,9 @@ pub struct Targets {
     /// your sensitivity in each game, by the game's id, so picking a game again brings it back
     #[serde(default)]
     pub sensitivities: std::collections::BTreeMap<String, f64>,
+    /// the game picked, since two games can share the same numbers
+    #[serde(default)]
+    pub game: Option<String>,
 }
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -239,6 +242,14 @@ impl Settings {
                 ..vision::Config::default()
             }
             .validate()?;
+        }
+        if self
+            .targets
+            .game
+            .as_ref()
+            .is_some_and(|game| game.is_empty() || game.len() > 40)
+        {
+            return Err("a game's id is 1 to 40 characters".into());
         }
         if sensitivities.len() > 100 {
             return Err("there are more than 100 saved sensitivities".into());

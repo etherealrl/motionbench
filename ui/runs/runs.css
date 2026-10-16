@@ -105,14 +105,17 @@
 /* a lighter red over the track between a red line where the targets were first seen and one
    where they were last seen */
 .crop-crowded > span {
-  position: absolute;
   inset-block: 0;
-  /* where a thumb at that value stands, radix keeps the thumbs inside the track by moving them
-     in by up to half their width */
+  background: color-mix(in oklab, var(--color-destructive) 55%, white);
+}
+/* from where a thumb at --from stands to where one at --to does, radix keeps the thumbs inside the
+   track by moving them in by up to half their width */
+.crop-crowded > span,
+.replay-kept {
+  position: absolute;
   --thumb: calc(var(--spacing) * 2); /* half the thumb, size-4 */
   left: calc(var(--from) * 1% + var(--thumb) * (1 - var(--from) / 50));
   right: calc((100 - var(--to)) * 1% + var(--thumb) * (1 - (100 - var(--to)) / 50));
-  background: color-mix(in oklab, var(--color-destructive) 55%, white);
 }
 .crop-crowded > span::before,
 .crop-crowded > span::after {
@@ -151,9 +154,38 @@
   font-variant-numeric: tabular-nums;
   color: var(--color-muted-foreground);
 }
-.replay-controls [data-slot="slider"] {
+/* the track and the span a crop keeps drawn behind it */
+.replay-track {
+  position: relative;
+  display: flex;
   flex: 1;
+  align-items: center;
   min-width: 0;
+}
+.replay-track [data-slot="slider"] {
+  flex: 1;
+}
+/* the span a crop keeps, as a strip under the track */
+.replay-kept {
+  top: calc(50% + var(--spacing) * 2.5); /* below the thumb, size-4 */
+  height: 4px; /* pixels: a strip that still shows */
+  border-radius: 2px; /* pixels: half the strip */
+  background: var(--color-primary);
+  pointer-events: none;
+}
+/* the replay's track has no offsets to match, it's the whole width */
+.crop-crowded.replay-crowded {
+  inset-inline: 0;
+}
+.replay-settings {
+  display: grid;
+  gap: var(--spacing-row);
+  width: 16rem;
+  font-size: var(--text-sm);
+}
+.replay-settings-head {
+  display: flex;
+  justify-content: space-between;
 }
 .replay-speed {
   flex: none;
