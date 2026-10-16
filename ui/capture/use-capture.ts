@@ -14,7 +14,7 @@ export function useCapture({ snapshot, root, setRoot, libraryReady, call, setErr
   const [decoderNotice, setDecoderNotice] = useState<string | null>(null);
   const sections = settings.display.sections;
   const setSections = (sections: SetupSections) =>
-    updateSettings({ display: { ...settings.display, sections } });
+    updateSettings((shown) => ({ display: { ...shown.display, sections } }));
   const action = async (command: string, args?: Record<string, unknown>) => {
     setBusy(true);
     try {

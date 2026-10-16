@@ -384,3 +384,12 @@
 .recording-sort .recording-sort-label {
   display: none;
 }
+.tagged-sides {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--spacing-inline) var(--spacing-group);
+}
+.tagged-sides p {
+  margin: 0;
+}

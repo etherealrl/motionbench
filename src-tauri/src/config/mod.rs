@@ -51,6 +51,35 @@ pub struct Targets {
 #[serde(deny_unknown_fields)]
 pub struct Recording {
     pub button: Option<Button>,
+    /// the side the next recordings get tagged with, none leaves them untagged
+    #[serde(default)]
+    pub side: Option<Side>,
+}
+/// which side of a comparison a recording is, what each case calls it is the ui's
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum Side {
+    Baseline,
+    Candidate,
+}
+/// a recording's side, with the comparison it was made for so another one never reads it
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Tag {
+    pub case: Case,
+    pub side: Side,
+}
+/// a comparison the app walks you through
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum Case {
+    /// native movement against an assist program
+    Assist,
+    /// the mouse plugged in directly against through a box
+    Box,
+    /// one box against another
+    Boxes,
+    /// a Medius with its renderer off against on
+    Renderer,
 }
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -91,6 +120,25 @@ pub struct Display {
     pub muted: bool,
     #[serde(default)]
     pub theme: Theme,
+    /// what the app is used to compare, none until it's been asked
+    #[serde(default)]
+    pub purpose: Option<Purpose>,
+}
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum Purpose {
+    Looking,
+    #[serde(untagged)]
+    Case(Case),
+}
+impl Purpose {
+    /// what a recording made now gets tagged with, nothing while just looking
+    pub fn tag(self, side: Option<Side>) -> Option<Tag> {
+        let Self::Case(case) = self else {
+            return None;
+        };
+        Some(Tag { case, side: side? })
+    }
 }
 /// the app's colors, or whatever the system uses
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -185,7 +233,10 @@ impl Default for Settings {
     fn default() -> Self {
         Self {
             version: VERSION,
-            recording: Recording { button: None },
+            recording: Recording {
+                button: None,
+                side: None,
+            },
             capture: Capture {
                 root: None,
                 mouse: None,
@@ -204,6 +255,7 @@ impl Default for Settings {
                 volume: Volume::default(),
                 muted: false,
                 theme: Theme::default(),
+                purpose: None,
                 sections: Sections {
                     targets: false,
                     box_: false,
@@ -262,10 +314,17 @@ impl Settings {
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Patch {
+    recording: Option<RecordingPatch>,
     aim: Option<AimPatch>,
     vision: Option<vision::Config>,
     targets: Option<Targets>,
     display: Option<Display>,
+}
+/// the button is saved where it's bound, so only the side comes from here
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct RecordingPatch {
+    side: Option<Side>,
 }
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -275,6 +334,9 @@ struct AimPatch {
 }
 impl Patch {
     pub fn apply(self, settings: &mut Settings) {
+        if let Some(recording) = self.recording {
+            settings.recording.side = recording.side;
+        }
         if let Some(aim) = self.aim {
             settings.aim.speed = aim.speed;
             settings.aim.deadzone_counts = aim.deadzone_counts;

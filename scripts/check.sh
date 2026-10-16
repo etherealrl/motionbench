@@ -21,6 +21,18 @@ for other in \
   fi
 done
 
+dev="--features motion-bench-desktop/developer-tools"
+# CI builds the app with and without the developer tools as two jobs side by side, CHECK_VARIANT says which one
+# this is. the hooks leave it unset and do both
+variant="${CHECK_VARIANT:-both}"
+if [ "$variant" = dev ]; then
+  # shellcheck disable=SC2086
+  cargo clippy --workspace --all-targets --no-default-features $dev -- -D warnings
+  # shellcheck disable=SC2086
+  cargo test --workspace --no-default-features $dev
+  exit 0
+fi
+
 # the checks below that look for their own files first only run where those files are
 if [ "$stage" = push ] && [ -f scripts/tests/git-identity.sh ]; then
   bash scripts/tests/git-identity.sh
@@ -36,7 +48,6 @@ if [ -f .fallowrc.json ]; then
   bun x --no-install jscpd --baseline-from-ref "$base" --fail-on-new-clones --silent
 fi
 
-dev="--features motion-bench-desktop/developer-tools"
 cargo fmt --all -- --check
 # formatting, lint with the shadcn rules and the type check, all through Vite+
 bun run check
@@ -49,9 +60,11 @@ cargo clippy --workspace --all-targets --no-default-features -- -D warnings
 if [ "$stage" = commit ]; then
   exit 0
 fi
-# shellcheck disable=SC2086
-cargo clippy --workspace --all-targets --no-default-features $dev -- -D warnings
 cargo test --workspace --no-default-features
-# shellcheck disable=SC2086
-cargo test --workspace --no-default-features $dev
 bun run test
+if [ "$variant" = both ]; then
+  # shellcheck disable=SC2086
+  cargo clippy --workspace --all-targets --no-default-features $dev -- -D warnings
+  # shellcheck disable=SC2086
+  cargo test --workspace --no-default-features $dev
+fi

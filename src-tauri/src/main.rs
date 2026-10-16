@@ -49,6 +49,7 @@ macro_rules! handlers {
             commands::runs::import_run,
             commands::runs::rename_run,
             commands::runs::set_crop,
+            commands::runs::set_tag,
             commands::runs::delete_run,
             commands::runs::run_plot,
             commands::runs::run_crowded,

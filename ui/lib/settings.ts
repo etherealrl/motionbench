@@ -18,6 +18,7 @@ const errors = new Set<(message: string) => void>();
 function publish() {
   shown = { ...saved, ...sending, ...queued } as AppSettings;
   shown.aim = { ...saved.aim, ...sending.aim, ...queued.aim };
+  shown.recording = { ...saved.recording, ...sending.recording, ...queued.recording };
   listeners.forEach((listener) => listener());
 }
 function subscribe(listener: () => void) {

@@ -49,6 +49,7 @@ export const test = base.extend({
                 ...saved,
                 ...patch,
                 aim: { ...saved.aim, ...patch.aim },
+                recording: { ...saved.recording, ...patch.recording },
               };
               return saved;
             },

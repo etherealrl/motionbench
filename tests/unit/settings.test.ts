@@ -73,6 +73,7 @@ test("a change in another section stays shown while one is saved", async () => {
       volume: 0.6,
       muted: false,
       theme: "system",
+      purpose: null,
     },
   });
   expect(shown().aim.speed).toBe(3000);
@@ -89,6 +90,7 @@ test("a change in another section stays shown while one is saved", async () => {
       volume: 0.6,
       muted: false,
       theme: "system",
+      purpose: null,
     },
   });
   expect(await flushed).toBe(true);

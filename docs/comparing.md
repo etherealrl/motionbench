@@ -2,6 +2,12 @@
 
 this is how to set up a comparison so the result actually means something. the rules first, because they're the same for every case, then one section per thing you might want to test
 
+## the app walks you through it
+
+the first time you open the app it asks what you're comparing, one of the cases further down (you can change it later in the settings). then Capture shows a checklist for that case, that ticks itself from what the app sees right now and from what your recordings saved, like the renderer being on in a recording tagged Renderer off. it floats over the page, so throw it in whichever corner it bothers you the least, and fold it to just the names
+
+next to Record there's a Side picker, and every recording gets tagged with the side picked, which you can change from the recording's menu in Runs. Compare then has a Use the tagged sides button that fills both sides with them and picks the features. none of it is forced, it's just there to help, and you can still compare whatever you want
+
 ## the rules
 
 ### every recording is one sample

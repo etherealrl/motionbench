@@ -27346,6 +27346,8 @@ export const snapshot: Snapshot = {
   "runs": [
     {
       "crop": null,
+      "tag": null,
+      "vision": null,
       "decoder": {
         "WindowsDescriptor": {
           "buttons": {

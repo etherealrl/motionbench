@@ -328,6 +328,21 @@ export interface Run {
   result: ResultRow | null;
   /** the span every analysis reads, on the pcap clock; kept in the library, never in the files */
   crop: { from_us: number; to_us: number } | null;
+  /** which side of a comparison it is, a label kept in the library like the name */
+  tag: Tag | null;
+  /** what target capture ran with, null without a whole target capture */
+  vision: VisionConfig | null;
+}
+/** which side of a comparison a recording is, what each case calls it is in `cases` */
+export type Side = "baseline" | "candidate";
+/** a comparison the app walks you through */
+export type Case = "assist" | "box" | "boxes" | "renderer";
+/** what the app is used to compare, null until it's been asked */
+export type Purpose = Case | "looking";
+/** a recording's side, with the comparison it was made for */
+export interface Tag {
+  case: Case;
+  side: Side;
 }
 export interface RunStatus {
   kind: "complete" | "degraded" | "failed" | "interrupted";
@@ -502,10 +517,11 @@ export interface DisplaySettings {
   volume: number;
   muted: boolean;
   theme: Theme;
+  purpose: Purpose | null;
 }
 /** the settings as native saved them; bindings and the capture choice are saved where they are made */
 export interface AppSettings {
-  recording: { button: number | null };
+  recording: { button: number | null; side: Side | null };
   capture: { root: string | null; mouse: SavedMouse | null };
   aim: AimTuning & { button: number };
   vision: VisionConfig;
@@ -523,6 +539,7 @@ export interface TargetSettings {
 }
 /** what the ui may change, each section whole */
 export interface SettingsPatch {
+  recording?: { side: Side | null };
   aim?: AimTuning;
   vision?: VisionConfig;
   targets?: TargetSettings;

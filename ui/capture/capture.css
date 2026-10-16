@@ -76,3 +76,56 @@
 .box-actions > :first-child {
   width: --spacing(56);
 }
+.purpose-prompt {
+  display: grid;
+  gap: var(--spacing-row);
+  margin-bottom: var(--spacing-row);
+  padding: var(--spacing-block);
+}
+.purpose-prompt p {
+  margin: 0;
+}
+.purpose-head,
+.assist-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--spacing-group);
+}
+.purpose-choices {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-inline);
+}
+.assist-checklist {
+  display: grid;
+  gap: var(--spacing-row);
+  width: min(24rem, calc(100vw / var(--ui-scale, 1) - 3 * var(--spacing-block)));
+  padding: var(--spacing-group) var(--spacing-block);
+}
+.assist-checklist[data-folded="true"] {
+  width: auto;
+}
+/* a long list scrolls inside the panel instead of running off the window */
+.assist-checklist ul {
+  max-height: calc(100vh / var(--ui-scale, 1) - 5 * var(--spacing-block));
+  overflow-y: auto;
+  display: grid;
+  gap: var(--spacing-inline);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.assist-check {
+  display: grid;
+  grid-template-columns: 1rem 1fr;
+  align-items: center;
+  gap: 0 var(--spacing-inline);
+}
+.assist-check > svg {
+  width: 1rem;
+  height: 1rem;
+}
+.assist-check > span + span {
+  grid-column: 2;
+}

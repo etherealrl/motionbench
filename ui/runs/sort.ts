@@ -7,6 +7,8 @@ type RecordedBox = {
   family?: string;
   name?: string;
   firmware?: string;
+  /** which box it was, the same each time it connects */
+  key?: string;
   medius?: Partial<MediusState> | null;
 };
 

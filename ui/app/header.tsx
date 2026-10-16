@@ -1,5 +1,14 @@
 import { useLayoutEffect, useRef, useState } from "react";
-import { ALargeSmall, Import, Mouse, Settings, Volume2, VolumeX, SunMoon } from "lucide-react";
+import {
+  ALargeSmall,
+  GitCompareArrows,
+  Import,
+  Mouse,
+  Settings,
+  Volume2,
+  VolumeX,
+  SunMoon,
+} from "lucide-react";
 import { InfoTip } from "@/components/info-tip";
 import { Badge, type BadgeTone } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -13,6 +22,7 @@ import { native } from "@/lib/native";
 import { recordingTime } from "@/capture/recording";
 import { useTheme } from "@/lib/theme";
 import type { Snapshot, Theme } from "@/types";
+import { PurposePick } from "@/capture/comparing";
 
 // the one global status, the most pressing first; none while nothing runs
 function sessionStatus(snapshot: Snapshot): { label: string; tone: BadgeTone } | null {
@@ -74,7 +84,7 @@ export function AppHeader({
             <Badge variant={status.tone}>{status.label}</Badge>
           </span>
         )}
-        <SettingsMenu onError={onError} />
+        <SettingsMenu recording={!!snapshot.recording} onError={onError} />
         <Button variant="outline" size="sm" disabled={!native || !libraryReady} onClick={onImport}>
           <Import /> Import
         </Button>
@@ -83,10 +93,18 @@ export function AppHeader({
   );
 }
 
-function SettingsMenu({ onError }: { onError: (message: string) => void }) {
+function SettingsMenu({
+  recording,
+  onError,
+}: {
+  /** a recording takes its tag when it ends, so the comparison stays put until then */
+  recording: boolean;
+  onError: (message: string) => void;
+}) {
   const display = useSettings().display;
   const zoom = display.zoom;
-  const setZoom = (zoom: number) => updateSettings({ display: { ...display, zoom } });
+  const setZoom = (zoom: number) =>
+    updateSettings((shown) => ({ display: { ...shown.display, zoom } }));
   useTheme(display.theme);
   // before the first paint, so a saved scale never jumps from another one
   useLayoutEffect(() => {
@@ -125,13 +143,19 @@ function SettingsMenu({ onError }: { onError: (message: string) => void }) {
             aria-label="Theme"
             value={display.theme}
             onValueChange={(theme) =>
-              updateSettings({ display: { ...display, theme: theme as Theme } })
+              updateSettings((shown) => ({ display: { ...shown.display, theme: theme as Theme } }))
             }
           >
             <DropdownOption value="system">Same as Windows</DropdownOption>
             <DropdownOption value="light">Light</DropdownOption>
             <DropdownOption value="dark">Dark</DropdownOption>
           </Dropdown>
+        </div>
+        <div className="settings-row">
+          <span className="settings-icon">
+            <GitCompareArrows aria-hidden className="size-4" />
+          </span>
+          <PurposePick disabled={recording} />
         </div>
         <CueVolume />
         {native && <RecordingsFolder onError={onError} />}
@@ -148,7 +172,7 @@ function CueVolume() {
   const level = Math.round((dragging ?? display.volume) * 100);
   const silent = display.muted || level === 0;
   const save = (patch: Partial<typeof display>) =>
-    updateSettings({ display: { ...display, ...patch } });
+    updateSettings((shown) => ({ display: { ...shown.display, ...patch } }));
   return (
     <div className="settings-row">
       <Button

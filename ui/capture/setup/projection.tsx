@@ -75,6 +75,13 @@ const fitsGame = (game: Game, config: VisionConfig) =>
   game.fov_axis === config.fov_axis &&
   (game.free || same(game.fov, config.fov));
 
+/** the game picked while it still fits. CS2 and Apex share their numbers, so with none picked it
+ * only gives a game the numbers can't be another one's */
+export function shownGame(config: VisionConfig, picked: string | null) {
+  const fitting = games.filter((g) => fitsGame(g, config));
+  return fitting.find((g) => g.id === picked) ?? (fitting.length === 1 ? fitting[0] : undefined);
+}
+
 /** the size of the display target capture copies: what's running when it runs, else what native
  * reads from the display picked in the settings */
 function useScreen(config: VisionConfig, status: VisionStatus | undefined): Screen | null {
@@ -108,11 +115,7 @@ export function ProjectionSettings({
 }) {
   const screen = useScreen(config, status);
   const targets = useSettings().targets;
-  // the game picked while it still fits. CS2 and Apex share their numbers, so with none picked it
-  // only shows a game the numbers can't be another one's
-  const fitting = games.filter((g) => fitsGame(g, config));
-  const game =
-    fitting.find((g) => g.id === targets.game) ?? (fitting.length === 1 ? fitting[0] : undefined);
+  const game = shownGame(config, targets.game);
   const update: Update = (key, value) =>
     updateSettings((shown) => ({ vision: { ...shown.vision, [key]: value } }));
   return (

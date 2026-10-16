@@ -433,6 +433,13 @@ pub(crate) fn whole_evidence(pcap: &Path, incomplete: &str) -> Result<Evidence, 
     Ok(evidence)
 }
 
+/// the settings target capture beside `pcap` ran with, when it finished whole
+pub fn recorded_config(pcap: &Path) -> Option<Config> {
+    whole_evidence(pcap, "")
+        .ok()
+        .map(|evidence| evidence.config)
+}
+
 /// a target capture from 0.3.0. it kept the screen's size in its settings, and its FOV was always
 /// measured across the screen's width
 fn from_v1(mut saved: serde_json::Value) -> serde_json::Value {
