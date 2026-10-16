@@ -103,3 +103,45 @@ fn the_same_folder_in_other_letters_moves_nothing() {
     assert!(from.join("a.pcap").exists());
     std::fs::remove_dir_all(&from).unwrap();
 }
+
+#[test]
+fn a_recording_with_one_file_already_there_stays_whole() {
+    let from = folder("whole-from");
+    let to = folder("whole-to");
+    std::fs::write(from.join("a.pcap"), b"capture").unwrap();
+    std::fs::write(from.join("a.json"), b"sidecar").unwrap();
+    std::fs::write(to.join("a.json"), b"someone else's").unwrap();
+    let left = move_recordings(&from, &to).unwrap();
+    assert!(left[0].contains("recording a stayed"), "{left:?}");
+    assert!(from.join("a.pcap").exists() && from.join("a.json").exists());
+    assert!(!to.join("a.pcap").exists());
+    std::fs::remove_dir_all(&from).unwrap();
+    std::fs::remove_dir_all(&to).unwrap();
+}
+
+#[cfg(windows)]
+#[test]
+fn a_recording_whose_file_cannot_move_goes_back_whole() {
+    let from = folder("back-from");
+    let to = folder("back-to");
+    std::fs::write(from.join("a.csv"), b"report rows").unwrap();
+    std::fs::write(from.join("a.pcap"), b"capture").unwrap();
+    // shared for reading only, so it copies but can't be renamed or deleted
+    use std::os::windows::fs::OpenOptionsExt;
+    let held = std::fs::OpenOptions::new()
+        .read(true)
+        .share_mode(1)
+        .open(from.join("a.pcap"))
+        .unwrap();
+    let left = move_recordings(&from, &to).unwrap();
+    drop(held);
+    assert!(
+        left.iter().any(|l| l.contains("recording a stayed")),
+        "{left:?}"
+    );
+    assert_eq!(std::fs::read(from.join("a.csv")).unwrap(), b"report rows");
+    assert_eq!(std::fs::read(from.join("a.pcap")).unwrap(), b"capture");
+    assert!(!to.join("a.csv").exists() && !to.join("a.pcap").exists());
+    std::fs::remove_dir_all(&from).unwrap();
+    std::fs::remove_dir_all(&to).unwrap();
+}

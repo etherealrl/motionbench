@@ -1,5 +1,5 @@
 import { connectedBox, snapshot as fixture } from "../../ui/fixture";
-import { expect, test } from "./settings-mock";
+import { expect, test, type SavedSettings } from "./settings-mock";
 import type { Page } from "@playwright/test";
 
 const vision = {
@@ -74,6 +74,11 @@ async function open(page: Page, patch: Record<string, unknown>) {
             if (command === "plugin:dialog|open") return "D:\\Recordings";
             if (command === "check_update") return (patch as { update?: string }).update ?? null;
             if (command === "display_size") return [2560, 1440];
+            if (command === "displays")
+              return [
+                { adapter: 0, output: 0, number: 1, gpu: "GPU", size: [2560, 1440], main: true },
+                { adapter: 0, output: 1, number: 2, gpu: "GPU", size: [1920, 1080], main: false },
+              ];
             // the real one ends the app
             if (command === "install_update") return new Promise(() => {});
             if (command === "run_plot") return fixture.plot;
@@ -865,4 +870,48 @@ test("every game can be picked, and each keeps your sensitivity for it", async (
   await expect.poll(async () => (await saved()).vision.fov).toBe(104);
   await expect(section.getByLabel("Game", { exact: true })).toHaveText("Apex Legends");
   await expect(page.getByRole("option", { name: /Aim Lab/ })).toHaveCount(0);
+});
+
+test("numbers two games share, with no game saved, ask for one instead of guessing", async ({
+  page,
+}) => {
+  // CS2's and Apex's numbers, as settings from before the picked game was saved
+  await page.addInitScript(() =>
+    (window as unknown as SavedSettings).seedSettings({
+      vision: { fov: 90, fov_axis: "horizontal_4x3", yaw: 0.022, pitch: 0.022 },
+      targets: { game: null },
+    }),
+  );
+  await open(page, {});
+  const trigger = page.getByRole("button", { name: "Target capture", exact: true });
+  if ((await trigger.getAttribute("aria-expanded")) !== "true") await trigger.click();
+  const section = page.getByRole("region", { name: "Projection" });
+  await expect(section.getByLabel("Game", { exact: true })).toHaveText("Pick a game");
+});
+
+test("the display is picked by its Windows number, and target capture needs a scenario to start", async ({
+  page,
+}) => {
+  // with a model chosen, so the scenario is the only thing missing
+  await open(page, { readiness: { ...fixture.readiness, screen_capture: null } });
+  const trigger = page.getByRole("button", { name: "Target capture", exact: true });
+  if ((await trigger.getAttribute("aria-expanded")) !== "true") await trigger.click();
+  await expect(page.getByLabel("Display", { exact: true })).toHaveText(
+    "Display 1, 2560 × 1440, main",
+  );
+  await page.getByLabel("Display", { exact: true }).click();
+  await page.getByRole("option", { name: "Display 2, 1920 × 1080" }).click();
+  await expect
+    .poll(async () =>
+      page.evaluate(() => {
+        const { vision } = (window as unknown as SavedSettings).savedSettings();
+        return [vision.adapter, vision.output];
+      }),
+    )
+    .toEqual([0, 1]);
+  // no scenario yet, so it can't start and says why
+  await expect(page.getByRole("button", { name: "Start target capture" })).toBeDisabled();
+  await expect(page.getByText("name the scenario first", { exact: false })).toBeVisible();
+  await page.getByLabel("Scenario").fill("gridshot");
+  await expect(page.getByRole("button", { name: "Start target capture" })).toBeEnabled();
 });

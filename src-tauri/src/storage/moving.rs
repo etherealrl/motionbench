@@ -59,18 +59,68 @@ pub fn move_recordings(from: &Path, to: &Path) -> Result<Vec<String>, String> {
         .iter()
         .filter_map(|name| name.strip_suffix(".pcap"))
         .collect();
-    let ours = |name: &str| {
-        ["results", "descriptors"].contains(&name)
-            || name.starts_with("library.")
-            || stems.iter().any(|stem| {
-                name.strip_prefix(stem)
+    let mut recordings: std::collections::BTreeMap<&str, Vec<&str>> = Default::default();
+    for name in &names {
+        // the longest, since a.b.pcap's files also start with a.
+        let stem = stems
+            .iter()
+            .filter(|stem| {
+                name.strip_prefix(**stem)
                     .is_some_and(|rest| rest.starts_with('.'))
             })
-    };
-    move_into(from, to, &mut left, &ours);
+            .max_by_key(|stem| stem.len());
+        if let Some(stem) = stem {
+            recordings.entry(stem).or_default().push(name);
+        }
+    }
+    for (stem, files) in &recordings {
+        move_recording(from, to, stem, files, &mut left);
+    }
+    // a recording's file never goes this way, even one named like the library
+    let grouped: Vec<&str> = recordings.values().flatten().copied().collect();
+    move_into(from, to, &mut left, &|name| {
+        (["results", "descriptors"].contains(&name) || name.starts_with("library."))
+            && !grouped.contains(&name)
+    });
     // the old folder goes once it's empty, and stays when something couldn't move
     let _ = std::fs::remove_dir(from);
     Ok(left)
+}
+
+/// a recording's files all move or all stay, so it's never split between the two folders, where
+/// neither library would list it
+fn move_recording(from: &Path, to: &Path, stem: &str, files: &[&str], left: &mut Vec<String>) {
+    if let Some(taken) = files.iter().find(|file| to.join(file).exists()) {
+        left.push(format!(
+            "{taken} was already in {}, so the recording {stem} stayed in {}",
+            to.display(),
+            from.display()
+        ));
+        return;
+    }
+    for (i, file) in files.iter().enumerate() {
+        if let Err(e) = relocate(&from.join(file), &to.join(file)) {
+            let stuck: Vec<&str> = files[..i]
+                .iter()
+                .filter(|back| relocate(&to.join(back), &from.join(back)).is_err())
+                .copied()
+                .collect();
+            left.push(if stuck.is_empty() {
+                format!(
+                    "couldn't move {file} ({e}), so the recording {stem} stayed in {}",
+                    from.display()
+                )
+            } else {
+                format!(
+                    "couldn't move {file} ({e}), and {} couldn't go back, so the recording {stem} is split between {} and {}",
+                    stuck.join(", "),
+                    from.display(),
+                    to.display()
+                )
+            });
+            return;
+        }
+    }
 }
 
 fn move_into(from: &Path, to: &Path, left: &mut Vec<String>, ours: &dyn Fn(&str) -> bool) {
@@ -110,7 +160,8 @@ fn move_into(from: &Path, to: &Path, left: &mut Vec<String>, ours: &dyn Fn(&str)
 }
 
 /// a rename, or a copy and then a delete when the two folders are on different drives. a folder is
-/// copied whole before anything in it is deleted, so a copy that fails leaves the source as it was
+/// copied whole before anything in it is deleted, so a copy that fails leaves the source as it was,
+/// and a file whose original can't be deleted loses its copy, so it's only ever in one place
 fn relocate(source: &Path, target: &Path) -> io::Result<()> {
     if std::fs::rename(source, target).is_ok() {
         return Ok(());
@@ -125,10 +176,17 @@ fn relocate(source: &Path, target: &Path) -> io::Result<()> {
         return Err(e);
     }
     if folder {
-        std::fs::remove_dir_all(source)
-    } else {
-        std::fs::remove_file(source)
+        // a folder can be partly deleted by then, so its copy stays as the whole one
+        return std::fs::remove_dir_all(source).map_err(|e| {
+            io::Error::other(format!(
+                "{e}, it's copied whole to {} but some of it is still in the old folder",
+                target.display()
+            ))
+        });
     }
+    std::fs::remove_file(source).inspect_err(|_| {
+        let _ = std::fs::remove_file(target);
+    })
 }
 fn copy(source: &Path, target: &Path) -> io::Result<()> {
     if source.is_dir() {

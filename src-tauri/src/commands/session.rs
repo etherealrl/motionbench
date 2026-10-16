@@ -114,7 +114,11 @@ pub(crate) async fn initialize(state: State<'_, Shared>) -> Result<Value, String
             }
         }
         // only the first initialize starts anything, a reload of the window doesn't
-        (root, restore && config.targets.start_on_launch)
+        // a capture without a scenario gets no target events, so it waits for one
+        (
+            root,
+            restore && config.targets.start_on_launch && !config.vision.scenario.trim().is_empty(),
+        )
     };
     if start_targets {
         let shared = state.inner().clone();

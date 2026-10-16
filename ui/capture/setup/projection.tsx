@@ -108,10 +108,11 @@ export function ProjectionSettings({
 }) {
   const screen = useScreen(config, status);
   const targets = useSettings().targets;
-  // the game picked while it still fits, since CS2 and Apex share their numbers
+  // the game picked while it still fits. CS2 and Apex share their numbers, so with none picked it
+  // only shows a game the numbers can't be another one's
+  const fitting = games.filter((g) => fitsGame(g, config));
   const game =
-    games.find((g) => g.id === targets.game && fitsGame(g, config)) ??
-    games.find((g) => fitsGame(g, config));
+    fitting.find((g) => g.id === targets.game) ?? (fitting.length === 1 ? fitting[0] : undefined);
   const update: Update = (key, value) =>
     updateSettings((shown) => ({ vision: { ...shown.vision, [key]: value } }));
   return (

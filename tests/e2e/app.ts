@@ -84,10 +84,29 @@ export async function launch(home: string) {
     },
     stdio: "ignore",
   });
-  await until(() => call("GET", "/status").then(() => true), "the app's WebDriver server", 30_000);
-  const { sessionId } = (await call("POST", "/session", { capabilities: {} })) as {
-    sessionId: string;
+  // the whole tree, since the app starts helpers of its own. it may be gone already
+  const kill = () => {
+    try {
+      execSync(`taskkill /PID ${child.pid} /T /F`, { stdio: "ignore" });
+    } catch {
+      // already gone
+    }
   };
+  let sessionId: string;
+  try {
+    await until(
+      () => call("GET", "/status").then(() => true),
+      "the app's WebDriver server",
+      30_000,
+    );
+    ({ sessionId } = (await call("POST", "/session", { capabilities: {} })) as {
+      sessionId: string;
+    });
+  } catch (e) {
+    // an app that never got a session would hold the port for the next test
+    kill();
+    throw e;
+  }
   const session = `/session/${sessionId}`;
   /** runs `script` in the page, with `args` as `arguments` */
   const run = (script: string, ...args: unknown[]) =>
@@ -176,13 +195,8 @@ export async function launch(home: string) {
     until,
     close: async () => {
       await call("DELETE", session).catch(() => {});
-      // ending the session quits the app, this is for one that hangs, the whole tree since the app
-      // starts helpers of its own
-      try {
-        execSync(`taskkill /PID ${child.pid} /T /F`, { stdio: "ignore" });
-      } catch {
-        // already gone
-      }
+      // ending the session quits the app, this is for one that hangs
+      kill();
       await until(
         () =>
           call("GET", "/status").then(
