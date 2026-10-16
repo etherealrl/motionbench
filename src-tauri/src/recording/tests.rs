@@ -682,7 +682,7 @@ fn a_broken_app_refuses_everything_but_still_closes_and_commits() {
     assert_eq!(Recording::claim(&state).err().unwrap(), broken);
     // the app's state may be half written, nothing of it is listed
     let pcap = folder.path().join(format!("{stem}.pcap"));
-    assert_eq!(add_to_runs(&state, &pcap).unwrap_err(), broken);
+    assert_eq!(add_to_runs(&state, &pcap, None).unwrap_err(), broken);
     let shown = state.bench.locked().snapshot(0, Views::Readouts).readiness;
     assert_eq!(
         shown.record.unwrap().need,

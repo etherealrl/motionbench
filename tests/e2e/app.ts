@@ -5,7 +5,15 @@
 //   bun run build:e2e
 //   bun run test:e2e
 import { execSync, spawn } from "node:child_process";
-import { copyFileSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import {
+  copyFileSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { test as base } from "@playwright/test";
@@ -19,6 +27,9 @@ const ELEMENT = "element-6066-11e4-a52f-4a5d23de5d58";
 
 /** a profile of its own, so a test never touches your settings, recordings or WebView data */
 function profile() {
+  // a profile a closing WebView still held last time goes now
+  for (const old of readdirSync(tmpdir()).filter((name) => name.startsWith("motion-bench-e2e-")))
+    forget(join(tmpdir(), old));
   const home = mkdtempSync(join(tmpdir(), "motion-bench-e2e-"));
   const recordings = join(home, "recordings");
   mkdirSync(join(home, ".motion-bench"), { recursive: true });
@@ -31,6 +42,16 @@ function profile() {
     JSON.stringify({ version: 1, storage: { folder: recordings } }),
   );
   return home;
+}
+
+/** a profile's folder deleted, or left for the next run while WebView still holds it, since a
+ * profile holds a whole WebView's data and a few runs of them fill a drive */
+function forget(home: string) {
+  try {
+    rmSync(home, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
+  } catch {
+    // held, the next run's sweep gets it
+  }
 }
 
 /** the settings native saved, read from the file */
@@ -211,6 +232,10 @@ export async function launch(home: string) {
 
 export const test = base.extend<{ home: string }>({
   // eslint-disable-next-line no-empty-pattern
-  home: async ({}, use) => use(profile()),
+  home: async ({}, use) => {
+    const home = profile();
+    await use(home);
+    forget(home);
+  },
 });
 export { expect } from "@playwright/test";

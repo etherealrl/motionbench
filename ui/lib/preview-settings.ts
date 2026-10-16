@@ -2,7 +2,7 @@ import type { AppSettings } from "@/types";
 
 /** the preview's settings outside the app; the app starts from what native saved */
 export const previewSettings: AppSettings = {
-  recording: { button: null },
+  recording: { button: null, side: null },
   capture: { root: null, mouse: null },
   targets: { start_on_launch: false, sensitivities: {}, game: null },
   aim: { speed: 2000, deadzone_counts: 12, button: 8 },
@@ -33,6 +33,7 @@ export const previewSettings: AppSettings = {
     volume: 0.6,
     muted: false,
     theme: "system",
+    purpose: null,
   },
   storage: { folder: null, move_from: null },
 };

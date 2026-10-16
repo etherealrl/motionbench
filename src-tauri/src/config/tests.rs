@@ -358,3 +358,37 @@ fn the_ui_names_every_fov_axis_the_way_native_reads_it() {
         );
     }
 }
+
+#[test]
+fn the_purpose_and_the_side_are_saved_and_older_settings_load_without_them() {
+    let mut old = serde_json::to_value(Settings::default()).unwrap();
+    old["display"].as_object_mut().unwrap().remove("purpose");
+    old["recording"].as_object_mut().unwrap().remove("side");
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("config.json");
+    std::fs::write(&path, old.to_string()).unwrap();
+    let store = Store::open(path.clone());
+    assert!(store.notice().is_none());
+    assert_eq!(store.get().display.purpose, None);
+    assert_eq!(store.get().recording.side, None);
+    store
+        .update(|s| {
+            patch(json!({"recording": {"side": "candidate"}})).apply(s);
+            s.display.purpose = Some(Purpose::Case(Case::Assist));
+        })
+        .unwrap();
+    assert_eq!(saved(&path)["display"]["purpose"], "assist");
+    let again = Store::open(path).get();
+    assert_eq!(again.recording.side, Some(Side::Candidate));
+    assert_eq!(
+        Purpose::Case(Case::Renderer).tag(Some(Side::Baseline)),
+        Some(Tag {
+            case: Case::Renderer,
+            side: Side::Baseline
+        })
+    );
+    assert_eq!(Purpose::Looking.tag(Some(Side::Baseline)), None);
+    assert_eq!(Purpose::Case(Case::Assist).tag(None), None);
+    assert_eq!(serde_json::to_value(Purpose::Looking).unwrap(), "looking");
+    assert_eq!(again.display.purpose, Some(Purpose::Case(Case::Assist)));
+}

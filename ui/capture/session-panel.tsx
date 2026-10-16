@@ -13,6 +13,9 @@ import type { Snapshot } from "@/types";
 import type { Capture } from "./use-capture";
 import { blockerHint } from "@/lib/text";
 import { recordingTime } from "./recording";
+import { useSettings } from "@/lib/settings";
+import { isCase } from "@/lib/sides";
+import { SidePick } from "./comparing";
 
 /** where reports come from, then recording them */
 export function SessionPanel({ session, capture }: { session: Session; capture: Capture }) {
@@ -116,8 +119,10 @@ function RecordRow({ session, capture }: { session: Session; capture: Capture })
   const { snapshot } = session;
   const { busy, action } = capture;
   const blocked = snapshot.readiness.record !== null;
+  const purpose = useSettings().display.purpose;
   return (
     <div className="session-row record-row">
+      {isCase(purpose) && <SidePick kind={purpose} disabled={!!snapshot.recording} />}
       <Button
         variant={!snapshot.recording && (!native || blocked) ? "outline" : "default"}
         disabled={!native || busy || blocked}

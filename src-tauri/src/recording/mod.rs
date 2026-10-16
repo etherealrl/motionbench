@@ -20,6 +20,7 @@ pub mod commit;
 use crate::{
     app::state::{Bench, Shared},
     capture::observers,
+    config::Tag,
     library::import,
     targets::vision,
 };
@@ -69,6 +70,8 @@ struct Current {
     pcap: Option<PathBuf>,
     control: Option<Value>,
     vision: bool,
+    /** the side it's for, taken when it began so a change while it runs can't move it */
+    tag: Option<Tag>,
 }
 
 /// what a drive did, for its caller to say
@@ -190,6 +193,7 @@ impl Recording {
                 pcap: None,
                 control: None,
                 vision: false,
+                tag: None,
             });
         } else if let Some(current) = current.as_mut() {
             current.stop.get_or_insert(at);
@@ -613,6 +617,13 @@ fn begin(state: &Shared, part: Part, driven: &mut Driven) -> Result<(), String> 
             recorder.decoder = decoder;
             let installed = data.locked().install(recorder);
             let stem = installed.map_err(motion_bench::capture::session::Refused::abandon)?;
+            let settings = state.bench.locked().settings().get();
+            if let Some(current) = state.recording.current().as_mut() {
+                current.tag = settings
+                    .display
+                    .purpose
+                    .and_then(|purpose| purpose.tag(settings.recording.side));
+            }
             if let Some(current) = state.recording.current().as_mut() {
                 current.pcap = Some(state.folder.join(format!("{stem}.pcap")));
                 current.data = Some(data);
@@ -1056,7 +1067,8 @@ fn hand_off(state: &Shared, driven: &mut Driven) {
     let Ok(pcap) = pcap(state) else {
         return;
     };
-    let listed = add_to_runs(state, &pcap);
+    let tag = state.recording.current().as_ref().and_then(|c| c.tag);
+    let listed = add_to_runs(state, &pcap, tag);
     let vision = state.recording.current().as_ref().is_some_and(|c| c.vision);
     let whole = matches!(driven.committed, Some(Ok(_)));
     if listed.is_ok() && whole && vision {
@@ -1085,13 +1097,15 @@ fn hand_off(state: &Shared, driven: &mut Driven) {
 
 /// lists a saved recording in Runs, replacing an entry for the same file; reading it and saving
 /// the library take no lock every command needs
-pub(crate) fn add_to_runs(state: &Shared, pcap: &Path) -> Result<(), String> {
+pub(crate) fn add_to_runs(state: &Shared, pcap: &Path, tag: Option<Tag>) -> Result<(), String> {
     // a broken app's state is half written, nothing of it goes into the library
     if broken(state) {
         return Err(BROKEN.into());
     }
     unlocked(state, None);
-    let run = import(pcap)?;
+    let mut run = import(pcap)?;
+    // a recording listed before keeps the tag it had, the library puts it back
+    run.tag = tag;
     state.library().add(run)?;
     unlocked(state, None);
     Ok(())

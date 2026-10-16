@@ -5,6 +5,7 @@ import { SessionPanel } from "./session-panel";
 import { CaptureSetup } from "./setup/capture-setup";
 import { LiveView } from "./live-view";
 import { Diagnostics, diagnosticsWarnings } from "./diagnostics";
+import { ComparisonChecklist, PurposePrompt } from "./comparing";
 
 export function CaptureView({ session, capture }: { session: Session; capture: Capture }) {
   const { snapshot, call } = session;
@@ -21,7 +22,9 @@ export function CaptureView({ session, capture }: { session: Session; capture: C
           <Diagnostics snapshot={snapshot} />
         </div>
       </div>
+      <PurposePrompt recording={!!snapshot.recording} />
       <SessionPanel session={session} capture={capture} />
+      <ComparisonChecklist snapshot={snapshot} />
       <CaptureSetup
         snapshot={snapshot}
         call={call}

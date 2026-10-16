@@ -281,3 +281,28 @@
 [data-sonner-toaster] {
   pointer-events: auto;
 }
+
+/* the floating layer is drawn at the screen's own scale, so a drag moves the panel as far as the
+ * pointer went, and the panel's content gets the UI scale back */
+.floating-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  pointer-events: none;
+  zoom: calc(1 / var(--ui-scale, 1));
+}
+.floating-panel {
+  position: absolute;
+  top: 0;
+  left: 0;
+  pointer-events: auto;
+  cursor: grab;
+  user-select: none;
+  touch-action: none;
+}
+.floating-panel:active {
+  cursor: grabbing;
+}
+.floating-content {
+  zoom: var(--ui-scale, 1);
+}

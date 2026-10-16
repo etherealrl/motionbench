@@ -1,4 +1,5 @@
 use super::*;
+use crate::config::{Case, Side};
 use crate::library::jobs;
 
 fn fixture_pcap() -> &'static Path {
@@ -45,6 +46,11 @@ fn a_restart_keeps_names_crops_devices_and_results() {
     let library = Library::new(folder.to_path_buf());
     let run = library.add(import(&pcap).unwrap()).unwrap();
     library.rename(&run.id, "Direct mouse 1").unwrap();
+    let tag = Tag {
+        case: Case::Assist,
+        side: Side::Candidate,
+    };
+    library.set_tag(&run.id, Some(tag)).unwrap();
     let crop = Selection {
         from_us: 1,
         to_us: 2,
@@ -62,6 +68,7 @@ fn a_restart_keeps_names_crops_devices_and_results() {
     assert_eq!(restored.id, "existing");
     assert_eq!(restored.name, "Direct mouse 1");
     assert_eq!(restored.crop, Some(crop));
+    assert_eq!(restored.tag, Some(tag));
     assert_eq!(restored.selected, run.selected);
     assert!(matches!(restored.decoder, Decoder::WindowsDescriptor(_)));
     assert!(restored.panels.iter().any(|p| p == "texture19"));
@@ -513,4 +520,27 @@ fn measure_the_run_list_per_frame() {
             "{n} runs, results {with_results}: {bytes} bytes, {per_frame:?} to copy and serialize a frame"
         );
     }
+}
+
+#[test]
+fn a_catalog_from_before_tags_loads_with_its_names_and_no_tag() {
+    let dir = tempfile::tempdir().unwrap();
+    let folder = dir.path();
+    let pcap = recorded(folder, "existing.pcap");
+    let library = Library::new(folder.to_path_buf());
+    let run = library.add(import(&pcap).unwrap()).unwrap();
+    library.rename(&run.id, "Native 1").unwrap();
+    let catalog = folder.join("library.json");
+    let mut old: serde_json::Value =
+        serde_json::from_slice(&std::fs::read(&catalog).unwrap()).unwrap();
+    for entry in old["recordings"].as_object_mut().unwrap().values_mut() {
+        entry.as_object_mut().unwrap().remove("tag");
+    }
+    std::fs::write(&catalog, old.to_string()).unwrap();
+
+    let (library, warnings) = restarted(folder);
+    assert!(warnings.is_empty(), "{warnings:?}");
+    let runs = library.runs();
+    assert_eq!(runs[0].name, "Native 1");
+    assert_eq!(runs[0].tag, None);
 }

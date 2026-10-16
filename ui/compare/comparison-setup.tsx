@@ -10,6 +10,8 @@ import type { Comparison } from "./use-comparison";
 import { RecordingPicker } from "./recording-picker";
 import { Notice } from "@/components/notice";
 import { panelLabel, panelLabels } from "@/lib/panels";
+import { cases, isCase, listed, recordedDifferences, tagged } from "@/lib/sides";
+import { useSettings } from "@/lib/settings";
 
 // why a paired comparison can't run on what's picked, the same words native would refuse it with
 function pairedRefusal(runs: Run[], candidate: string[]) {
@@ -79,6 +81,7 @@ export function ComparisonSetup({
             </Dropdown>
           </label>
         </div>
+        <TaggedSides runs={snapshot.runs} comparison={comparison} />
         <Populations session={session} comparison={comparison} />
         <div className="control-row analysis-config">
           <JudgeSettings comparison={comparison} />
@@ -110,6 +113,49 @@ export function ComparisonSetup({
         ) : null}
       </fieldset>
     </section>
+  );
+}
+
+/** fills the comparison with the recordings tagged with a side, when both sides have some */
+function TaggedSides({ runs, comparison }: { runs: Run[]; comparison: Comparison }) {
+  const kind = useSettings().display.purpose;
+  if (!isCase(kind)) return null;
+  const sides = tagged(runs, kind);
+  const baseline = sides.filter((run) => run.tag?.side === "baseline").map((run) => run.id);
+  const candidate = sides.filter((run) => run.tag?.side === "candidate").map((run) => run.id);
+  if (!baseline.length || !candidate.length) return null;
+  // only an assist acts on targets, the boxes are judged on the texture of the movement
+  const assist = kind === "assist";
+  const full = assist && sides.every((run) => run.panels.includes("full49"));
+  const differs = assist ? recordedDifferences(sides) : [];
+  const use = () => {
+    comparison.setPaired(false);
+    comparison.setMatching(false);
+    comparison.setBaseline(baseline);
+    comparison.setCandidate(candidate);
+    comparison.setPanel(full ? "full49" : "texture19");
+    comparison.setRange(null);
+  };
+  const names = cases[kind].sides;
+  const notes = [
+    `${baseline.length} ${names.baseline.toLowerCase()} against ${candidate.length} ${names.candidate.toLowerCase()}, as Separate recordings`,
+    full
+      ? "with Full49"
+      : assist
+        ? "with Texture19, since some of them don't have target events for Full49 (a recording that just ended gets them a moment later)"
+        : "with Texture19",
+  ];
+  return (
+    <div className="tagged-sides">
+      <Button variant="outline" onClick={use}>
+        Use the tagged sides
+      </Button>
+      <p className="field-description">
+        {notes.join(" ")}
+        {differs.length > 0 &&
+          `. just so you know, the ${listed(differs)} isn't the same in all of them`}
+      </p>
+    </div>
   );
 }
 

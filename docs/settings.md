@@ -1,6 +1,6 @@
 # settings
 
-the app saves its settings in `%USERPROFILE%\.motion-bench\config.json`, the first time you change one. that's the recording button, the USB root and the mouse you picked, the target capture settings, the UI scale, the theme (light, dark, or the same as Windows), where recordings go and which sections of Capture setup are open (and the aim settings, which only a developer build uses)
+the app saves its settings in `%USERPROFILE%\.motion-bench\config.json`, the first time you change one. that's the recording button, the USB root and the mouse you picked, the target capture settings, the UI scale, the theme (light, dark, or the same as Windows), what you're comparing and the side your next recordings get, where recordings go and which sections of Capture setup are open (and the aim settings, which only a developer build uses)
 
 a change saves itself after 300 ms, and anything still waiting gets saved when you close the window. a value outside its limits is refused and the field goes back to what was saved. if the file can't be written, the change still works until you close the app, and a notice tells you it wasn't saved
 

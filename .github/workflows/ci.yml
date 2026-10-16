@@ -16,7 +16,11 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' && github.event.action != 'closed' }}
 
 jobs:
-  check:
+  # the app with and without the developer tools, side by side, since building and testing each is most of the time
+  checks:
+    strategy:
+      matrix:
+        variant: [plain, dev]
     if: github.event.action != 'closed' && (github.event_name != 'push' || github.repository == 'etherealrl/motionbench')
     runs-on: windows-latest
     env:
@@ -29,6 +33,8 @@ jobs:
       - run: rustup show active-toolchain
       # the compiled dependencies are most of the time this job takes
       - uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ matrix.variant }}
       # the packages bun installs are checked against bun.lock, and the runtime downloads against the hashes
       # pinned in the setup script, so a cached copy is as safe as a fresh one, even for the installer
       - uses: actions/cache@v4
@@ -44,6 +50,16 @@ jobs:
       - run: powershell -NoProfile -ExecutionPolicy Bypass -File tools/vision/setup-vision.ps1
       - run: bash scripts/check.sh
         shell: bash
+        env:
+          CHECK_VARIANT: ${{ matrix.variant }}
+
+  # the one check the repo requires, passing once both of the above did
+  check:
+    if: always() && github.event.action != 'closed' && (github.event_name != 'push' || github.repository == 'etherealrl/motionbench')
+    needs: checks
+    runs-on: ubuntu-latest
+    steps:
+      - run: test "${{ needs.checks.result }}" = success
 
   # merging a release/<version> pull request releases it: a draft release on the merge, the installer built from
   # that commit and attached, then it's published, which is when the app sees it. a release made from here can't

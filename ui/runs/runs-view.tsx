@@ -7,6 +7,7 @@ import {
   FileUp,
   Library,
   Scissors,
+  Split,
   Trash2,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -16,7 +17,12 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
   DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
@@ -35,7 +41,9 @@ import { native } from "@/lib/native";
 import { panelLabel } from "@/lib/panels";
 import type { Session } from "@/app/use-session";
 import { outcome } from "@/lib/outcome";
-import type { MediusState, Run } from "@/types";
+import { cases, isCase } from "@/lib/sides";
+import { useSettings } from "@/lib/settings";
+import type { Case, MediusState, Run } from "@/types";
 import { DeleteRunDialog } from "./delete-run";
 import { RecordingClocks } from "./recording-clocks";
 import { CropRun, cropLength } from "./crop-run";
@@ -327,6 +335,36 @@ function RenameInput({
   );
 }
 
+/** the comparison a run's side belongs to, the one it was tagged for or the one picked now */
+function useSideCase(run: Run) {
+  const purpose = useSettings().display.purpose;
+  return run.tag?.case ?? (isCase(purpose) ? purpose : null);
+}
+
+function SideMenu({ run, kind, call }: { run: Run; kind: Case; call: Session["call"] }) {
+  const names = cases[kind].sides;
+  return (
+    <DropdownMenuSub>
+      <DropdownMenuSubTrigger disabled={!native}>
+        <Split />
+        Side
+      </DropdownMenuSubTrigger>
+      <DropdownMenuSubContent>
+        <DropdownMenuRadioGroup
+          value={run.tag?.side ?? "none"}
+          onValueChange={(side) =>
+            void call("set_tag", { id: run.id, tag: side === "none" ? null : { case: kind, side } })
+          }
+        >
+          <DropdownMenuRadioItem value="none">No side</DropdownMenuRadioItem>
+          <DropdownMenuRadioItem value="baseline">{names.baseline}</DropdownMenuRadioItem>
+          <DropdownMenuRadioItem value="candidate">{names.candidate}</DropdownMenuRadioItem>
+        </DropdownMenuRadioGroup>
+      </DropdownMenuSubContent>
+    </DropdownMenuSub>
+  );
+}
+
 function RunRow({
   run: r,
   session,
@@ -346,12 +384,18 @@ function RunRow({
   const menuButton = useRef<HTMLButtonElement>(null);
   const busy = snapshot.job?.status === "running";
   const state = outcome[r.status.kind];
+  const sideCase = useSideCase(r);
   return (
     <TableRow>
       <TableCell>
         <div className="run-title">
           <RunName run={r} rename={(name) => void call("rename_run", { id: r.id, name })} />
           <Badge variant={state.tone}>{state.label}</Badge>
+          {r.tag && (
+            <Badge variant="info" title={cases[r.tag.case].name}>
+              {cases[r.tag.case].sides[r.tag.side]}
+            </Badge>
+          )}
         </div>
         {r.status.message && <small className="run-status-reason">{r.status.message}</small>}
         <small title={r.path}>{r.path}</small>
@@ -396,15 +440,14 @@ function RunRow({
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
+              {sideCase && <SideMenu run={r} kind={sideCase} call={call} />}
               {r.path.endsWith(".pcap") && (
-                <>
-                  <DropdownMenuItem onSelect={() => onClocks(menuButton.current)}>
-                    <Clock />
-                    Recording clocks
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                </>
+                <DropdownMenuItem onSelect={() => onClocks(menuButton.current)}>
+                  <Clock />
+                  Recording clocks
+                </DropdownMenuItem>
               )}
+              {(sideCase || r.path.endsWith(".pcap")) && <DropdownMenuSeparator />}
               <DropdownMenuItem
                 variant="destructive"
                 disabled={!native || busy}

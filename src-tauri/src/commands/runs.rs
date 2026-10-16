@@ -5,7 +5,10 @@ use crate::{
 };
 use motion_bench::sync::LockExt;
 
-use crate::library::{Run, import};
+use crate::{
+    config::Tag,
+    library::{Library, Run, import},
+};
 use motion_bench::{
     analysis::{
         compare::Selection,
@@ -49,11 +52,28 @@ pub(crate) async fn rename_run(
     name: String,
     state: State<'_, Shared>,
 ) -> Result<(), String> {
+    change_library(state, move |library| library.rename(&id, &name)).await
+}
+
+#[tauri::command]
+pub(crate) async fn set_tag(
+    id: String,
+    tag: Option<Tag>,
+    state: State<'_, Shared>,
+) -> Result<(), String> {
+    change_library(state, move |library| library.set_tag(&id, tag)).await
+}
+
+/// a broken app's state is half written, so nothing of it changes the library
+async fn change_library(
+    state: State<'_, Shared>,
+    change: impl FnOnce(&Library) -> Result<(), String> + Send + 'static,
+) -> Result<(), String> {
     off_main(state, move |state| {
         if recording::broken(state) {
             return Err(readiness::BROKEN.into());
         }
-        state.library().rename(&id, &name)
+        change(&state.library())
     })
     .await
 }

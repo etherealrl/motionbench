@@ -6,9 +6,10 @@
 
 pub mod jobs;
 
-use crate::storage;
+use crate::{config::Tag, storage};
 use jobs::Jobs;
 use motion_bench::analysis::compare::{ResultRow, Selection};
+use motion_bench::targets::vision;
 use motion_bench::{
     analysis::{compare, dataset::Dataset},
     capture::{hid::Decoder, session::Device},
@@ -50,6 +51,10 @@ pub(crate) struct Run {
     /// the span every analysis of this recording reads, kept in the library and never in the
     /// recording's own files
     pub(crate) crop: Option<Selection>,
+    /// which side of a comparison it is, a label kept in the library like the name
+    pub(crate) tag: Option<Tag>,
+    /// what target capture ran with, so recordings made with other settings can be told apart
+    pub(crate) vision: Option<vision::Config>,
 }
 #[derive(Clone, Default, Serialize)]
 pub(crate) struct Refusals {
@@ -143,6 +148,8 @@ pub(crate) fn import(path: &Path) -> Result<Run, String> {
         },
         result: None,
         crop: None,
+        tag: None,
+        vision: vision::recorded_config(&path),
     };
     let dataset_path = {
         let Some(recording) = recording else {
@@ -234,6 +241,8 @@ struct Entry {
     /// taken out of Runs, so the folder scan doesn't add it straight back
     removed: bool,
     crop: Option<Selection>,
+    #[serde(default)]
+    tag: Option<Tag>,
     /// the id of the last result that read it
     result: Option<String>,
 }
@@ -251,6 +260,7 @@ impl Entry {
             decoder: Decoder::Unavailable,
             removed: false,
             crop: None,
+            tag: None,
             result: None,
         }
     }
@@ -264,6 +274,7 @@ impl Entry {
         self.decoder = run.decoder.clone();
         self.removed = false;
         self.crop = run.crop;
+        self.tag = run.tag;
         if let Some(result) = &run.result {
             self.result = Some(result.id.clone());
         }
@@ -369,6 +380,8 @@ impl Library {
                 refusals: run.refusals.clone(),
                 result: run.result.as_ref().map(ResultRow::summary),
                 crop: run.crop,
+                tag: run.tag,
+                vision: run.vision.clone(),
             })
             .collect();
         Listed {
@@ -538,6 +551,7 @@ impl Library {
                 Ok(mut run) => {
                     run.name = entry.name.clone();
                     run.crop = entry.crop;
+                    run.tag = entry.tag;
                     if entry
                         .selected
                         .as_ref()
@@ -611,6 +625,7 @@ impl Library {
                     }
                     run.name.clone_from(&entry.name);
                     run.crop = entry.crop;
+                    run.tag = entry.tag;
                     if listed.is_none() {
                         run.result = entry.result.as_deref().and_then(|id| self.load_result(id));
                     }
@@ -623,6 +638,7 @@ impl Library {
                 let previous = runs.remove(index);
                 run.name = previous.name;
                 run.crop = previous.crop;
+                run.tag = previous.tag;
                 run.result = previous.result;
             }
             runs.push(run.clone());
@@ -671,6 +687,13 @@ impl Library {
                 return Err("finish or cancel analysis before cropping a recording".into());
             }
             find(runs, id)?.crop = crop;
+            Ok(())
+        })
+    }
+
+    pub(crate) fn set_tag(&self, id: &str, tag: Option<Tag>) -> Result<(), String> {
+        self.change(|runs, _| {
+            find(runs, id)?.tag = tag;
             Ok(())
         })
     }
