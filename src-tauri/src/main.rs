@@ -56,6 +56,7 @@ macro_rules! handlers {
             commands::runs::run_numbers,
             commands::targets::model_classes,
             commands::targets::display_size,
+            commands::targets::displays,
             commands::session::set_tab,
             commands::runs::select_run_device,
             commands::analysis::analyze,

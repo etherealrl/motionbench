@@ -126,6 +126,71 @@ pub(crate) fn display_size(adapter: u32, output: u32) -> Option<[u32; 2]> {
     }
 }
 
+/// a display target capture can copy, with the GPU it hangs off, which is the one that copies it
+#[derive(serde::Serialize)]
+pub(crate) struct Display {
+    adapter: u32,
+    output: u32,
+    /// Windows' number for it, the one its display settings show
+    number: Option<u32>,
+    gpu: String,
+    size: [u32; 2],
+    main: bool,
+}
+
+/// every display on every GPU, in Windows' order
+#[tauri::command]
+pub(crate) fn displays() -> Vec<Display> {
+    let mut found = Vec::new();
+    #[cfg(windows)]
+    {
+        use windows::Win32::Graphics::Dxgi::{CreateDXGIFactory1, IDXGIFactory1};
+        let Ok(factory) = (unsafe { CreateDXGIFactory1::<IDXGIFactory1>() }) else {
+            return found;
+        };
+        for adapter in 0.. {
+            let Ok(gpu) = (unsafe { factory.EnumAdapters1(adapter) }) else {
+                break;
+            };
+            let name = unsafe { gpu.GetDesc1() }
+                .map(|desc| {
+                    let end = desc.Description.iter().position(|&c| c == 0).unwrap_or(128);
+                    String::from_utf16_lossy(&desc.Description[..end])
+                })
+                .unwrap_or_default();
+            for output in 0.. {
+                let Ok(screen) = (unsafe { gpu.EnumOutputs(output) }) else {
+                    break;
+                };
+                // an output that isn't part of the desktop has nothing to copy
+                let Ok(desc) = (unsafe { screen.GetDesc() }) else {
+                    continue;
+                };
+                if !desc.AttachedToDesktop.as_bool() {
+                    continue;
+                }
+                let end = desc.DeviceName.iter().position(|&c| c == 0).unwrap_or(32);
+                let device = String::from_utf16_lossy(&desc.DeviceName[..end]);
+                let area = desc.DesktopCoordinates;
+                found.push(Display {
+                    adapter,
+                    output,
+                    // \\.\DISPLAY2 is the one Windows calls 2
+                    number: device.trim_start_matches(r"\\.\DISPLAY").parse().ok(),
+                    gpu: name.clone(),
+                    size: [
+                        (area.right - area.left) as u32,
+                        (area.bottom - area.top) as u32,
+                    ],
+                    // the main display is the one the desktop starts at
+                    main: area.left == 0 && area.top == 0,
+                });
+            }
+        }
+    }
+    found
+}
+
 /// the class names a target model lists in its metadata, none when it lists none
 #[tauri::command]
 pub(crate) async fn model_classes(path: String) -> Result<Vec<String>, String> {

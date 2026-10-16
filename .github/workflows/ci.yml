@@ -3,20 +3,21 @@ name: ci
 # a push to main only runs it here, a fork gets it on its pull requests
 on:
   workflow_dispatch:
+  # closed too, since a merged release pull request is what makes the release
   pull_request:
+    types: [opened, synchronize, reopened, closed]
   push:
     branches: [main]
-  release:
-    types: [published]
 
-# a new push makes the run for the one before it pointless
+# a new push makes the run for the one before it pointless, though never the release's
 concurrency:
-  group: ci-${{ github.event_name }}-${{ github.ref }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  # a merged pull request's ref is main, so each release gets its number, and a later merge can't cancel it
+  group: ci-${{ github.event_name }}-${{ github.event.action }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' && github.event.action != 'closed' }}
 
 jobs:
   check:
-    if: github.event_name != 'release' && (github.event_name != 'push' || github.repository == 'etherealrl/motionbench')
+    if: github.event.action != 'closed' && (github.event_name != 'push' || github.repository == 'etherealrl/motionbench')
     runs-on: windows-latest
     env:
       # nobody debugs a CI build, and without the debug info it builds faster and the cache is way smaller
@@ -28,25 +29,72 @@ jobs:
       - run: rustup show active-toolchain
       # the compiled dependencies are most of the time this job takes
       - uses: Swatinem/rust-cache@v2
+      # the packages bun installs are checked against bun.lock, and the runtime downloads against the hashes
+      # pinned in the setup script, so a cached copy is as safe as a fresh one, even for the installer
+      - uses: actions/cache@v4
+        with:
+          path: ~/.bun/install/cache
+          key: bun-${{ hashFiles('bun.lock') }}
+      - uses: actions/cache@v4
+        with:
+          path: .dependency-cache
+          key: vision-${{ hashFiles('tools/vision/setup-vision.ps1') }}
       - run: bun install --frozen-lockfile
       # the desktop crate bundles these files, so it doesn't build without them
       - run: powershell -NoProfile -ExecutionPolicy Bypass -File tools/vision/setup-vision.ps1
       - run: bash scripts/check.sh
         shell: bash
 
-  # what people download is built here from the release's own commit, never on someone's machine. no cache here,
-  # so nothing from an earlier build can end up in it
+  # merging a release/<version> pull request releases it: a draft release on the merge, the installer built from
+  # that commit and attached, then it's published, which is when the app sees it. a release made from here can't
+  # start another workflow, so it all happens in this one. what people download is built here, never on someone's
+  # machine, and its Rust build has no cache, so nothing from an earlier build can end up in it
   installer:
-    if: github.event_name == 'release'
+    if: >-
+      github.event.action == 'closed' && github.event.pull_request.merged
+      && github.event.pull_request.base.ref == 'main'
+      && startsWith(github.event.pull_request.head.ref, 'release/')
+      && github.event.pull_request.head.repo.full_name == github.repository
     runs-on: windows-latest
     permissions:
       contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      NOTES: ${{ github.event.pull_request.body }}
     steps:
       - uses: actions/checkout@v5
         with:
-          ref: ${{ github.event.release.tag_name }}
+          ref: ${{ github.event.pull_request.merge_commit_sha }}
+      - shell: bash
+        env:
+          BRANCH: ${{ github.event.pull_request.head.ref }}
+          COMMIT: ${{ github.event.pull_request.merge_commit_sha }}
+        run: |
+          version="${BRANCH#release/}"
+          # the update file says this version, so the app being built has to be it too
+          built="$(sed -n 's/^version = "\(.*\)"$/\1/p' Cargo.toml | head -n 1)"
+          if [ "$built" != "$version" ]; then
+            echo "the branch says $version but Cargo.toml says $built" >&2
+            exit 1
+          fi
+          echo "TAG=v$version" >> "$GITHUB_ENV"
+          # a rerun after a failure finds the last try's draft, a published release is never touched
+          if [ "$(gh release view "v$version" --json isDraft --jq .isDraft 2>/dev/null)" = "true" ]; then
+            gh release delete "v$version" --yes --cleanup-tag
+          fi
+          gh release create "v$version" --draft --target "$COMMIT" --title "Motion Bench $version" --notes "$NOTES"
       - uses: oven-sh/setup-bun@v2
       - run: rustup show active-toolchain
+      # the packages bun installs are checked against bun.lock, and the runtime downloads against the hashes
+      # pinned in the setup script, so a cached copy is as safe as a fresh one, even for the installer
+      - uses: actions/cache@v4
+        with:
+          path: ~/.bun/install/cache
+          key: bun-${{ hashFiles('bun.lock') }}
+      - uses: actions/cache@v4
+        with:
+          path: .dependency-cache
+          key: vision-${{ hashFiles('tools/vision/setup-vision.ps1') }}
       - run: bun install --frozen-lockfile
       # the pinned ONNX Runtime and DirectML the installer bundles, checked against their hashes
       - run: powershell -NoProfile -ExecutionPolicy Bypass -File tools/vision/setup-vision.ps1
@@ -59,10 +107,6 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
       # latest.json is what the app reads to find a newer release, through the latest release's download link
       - shell: bash
-        env:
-          GH_TOKEN: ${{ github.token }}
-          TAG: ${{ github.event.release.tag_name }}
-          NOTES: ${{ github.event.release.body }}
         run: |
           version="${TAG#v}"
           dir=target/release/bundle/nsis
@@ -74,3 +118,4 @@ jobs:
             '{version: $version, notes: $notes, pub_date: (now | todate),
               platforms: {"windows-x86_64": {signature: $signature, url: $url}}}' > latest.json
           gh release upload "$TAG" "$dir/$exe" "$dir/$exe.sig" latest.json --clobber
+          gh release edit "$TAG" --draft=false

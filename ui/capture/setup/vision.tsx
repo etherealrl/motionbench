@@ -25,11 +25,16 @@ import { ProjectionSettings } from "./projection";
 
 const targetClass: NumberSetting = ["target_class", "Target class", null, 0, "-1 takes any class"];
 const detector: NumberSetting[] = [["confidence", "Minimum confidence", null, 2]];
-const hardware: NumberSetting[] = [
-  ["output", "Display", null, 0, "which display gets captured, by its index"],
-  ["adapter", "Capture GPU", null, 0, "which GPU does the capturing, by its index"],
-  ["cuda_device", "CUDA device", null, 0],
-];
+const hardware: NumberSetting[] = [["cuda_device", "CUDA device", null, 0]];
+
+// why Start can't be pressed, if it can't
+function startHint(pending: boolean, blocker: Blocker | null, unnamed: boolean) {
+  if (pending) return undefined;
+  if (blocker) return blockerHint(blocker) || undefined;
+  return unnamed
+    ? "name the scenario first, a recording without one gets no target events"
+    : undefined;
+}
 
 // what target capture is doing, in a word and a tone; off says nothing
 function captureState(
@@ -55,7 +60,7 @@ function captureState(
 type Command = (name: string, args?: Record<string, unknown>) => Promise<unknown>;
 
 // the saved target settings, and starting or stopping the worker with them
-function useTargetCapture(status: VisionStatus | undefined, command: Command, reveal: () => void) {
+function useTargetCapture(status: VisionStatus | undefined, command: Command) {
   const config = useSettings().vision;
   const [pending, setPending] = useState(false);
   const running = status?.running ?? false;
@@ -64,8 +69,6 @@ function useTargetCapture(status: VisionStatus | undefined, command: Command, re
   const update: Update = (key, value) => updateSettings({ vision: { ...config, [key]: value } });
   const toggle = async () => {
     if (pending) return;
-    // starting without a scenario still previews, the open settings show what is missing
-    if (!active && !config.scenario.trim()) reveal();
     setPending(true);
     try {
       // target capture starts with the saved settings, so a change not saved yet stops it
@@ -102,23 +105,24 @@ export function TargetSection({
   const { config, update, pending, running, active, fresh, toggle } = useTargetCapture(
     status,
     command,
-    () => onOpenChange(true),
   );
   const estimate = useDelayEstimate(command);
   const locked = running || recording || pending;
   const state = captureState(status, pending, config.provider, fresh);
+  // a recording without a scenario gets no target events, so it doesn't start without one
+  const unnamed = !active && !config.scenario.trim();
   return (
     <SetupSection
       title="Target capture"
       open={expanded}
       onOpenChange={onOpenChange}
       status={state && <Badge variant={state.tone}>{state.label}</Badge>}
-      hint={(!pending && blockerHint(blocker)) || undefined}
+      hint={startHint(pending, blocker, unnamed)}
       action={
         <StartStop
           active={active}
           pending={pending}
-          disabled={!native || pending || blocker !== null}
+          disabled={!native || pending || blocker !== null || unnamed}
           onClick={() => void toggle()}
         />
       }
@@ -200,6 +204,63 @@ function StartStop({
   );
 }
 
+type Display = {
+  adapter: number;
+  output: number;
+  number: number | null;
+  gpu: string;
+  size: [number, number];
+  main: boolean;
+};
+
+/** the display to capture, by the number Windows gives it, which also picks the GPU it hangs off */
+function DisplayPick({ config, native }: { config: VisionConfig; native: boolean }) {
+  const [displays, setDisplays] = useState<Display[]>([]);
+  useEffect(() => {
+    if (native)
+      invoke<Display[]>("displays")
+        .then((found) => setDisplays(found ?? []))
+        .catch(() => setDisplays([]));
+  }, [native]);
+  const gpus = new Set(displays.map((d) => d.gpu)).size;
+  const name = (d: Display) =>
+    [
+      // without Windows' number, it's only the GPU's own count of its outputs
+      d.number === null ? `Output ${d.output + 1} of GPU ${d.adapter + 1}` : `Display ${d.number}`,
+      `${d.size[0]} × ${d.size[1]}`,
+      d.main ? "main" : null,
+      // the GPU only matters when there's more than one
+      gpus > 1 ? d.gpu : null,
+    ]
+      .filter(Boolean)
+      .join(", ");
+  return (
+    <SettingRow id="target-display" label="Display" description="the screen the game is on">
+      <Dropdown
+        id="target-display"
+        aria-label="Display"
+        // a saved display that's gone, unplugged say, shows as none picked
+        value={
+          displays.some((d) => d.adapter === config.adapter && d.output === config.output)
+            ? `${config.adapter}:${config.output}`
+            : ""
+        }
+        placeholder="Pick a display"
+        onValueChange={(value) => {
+          const [adapter, output] = value.split(":").map(Number);
+          updateSettings((shown) => ({ vision: { ...shown.vision, adapter, output } }));
+        }}
+      >
+        {displays.map((d) => (
+          <DropdownOption key={`${d.adapter}:${d.output}`} value={`${d.adapter}:${d.output}`}>
+            {name(d)}
+          </DropdownOption>
+        ))}
+      </Dropdown>
+    </SettingRow>
+  );
+}
+
 function TargetSettings({
   config,
   update,
@@ -256,6 +317,7 @@ function TargetSettings({
           onChange={(e) => update("scenario", e.target.value)}
         />
       </SettingRow>
+      <DisplayPick config={config} native={native} />
       <SettingRow
         id="target-provider"
         label="Inference provider"

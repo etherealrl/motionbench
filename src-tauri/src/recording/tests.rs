@@ -783,7 +783,8 @@ fn a_panic_in_any_effect_leaves_the_evidence_or_its_marker(
         }
         let waited = std::time::Instant::now();
         while state.recording.busy() {
-            assert!(waited.elapsed() < Duration::from_secs(10), "never ended");
+            // a slow CI runner took more than 10 s once, a real hang never ends at all
+            assert!(waited.elapsed() < Duration::from_secs(60), "never ended");
             std::thread::sleep(Duration::from_millis(5));
         }
     };
