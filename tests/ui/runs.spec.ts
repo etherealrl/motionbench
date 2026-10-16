@@ -364,14 +364,19 @@ test("a recording made with target capture replays in its crop, and the crop can
   await expect(dialog.getByTestId("detected-target")).toHaveCount(1);
   await expect(dialog.getByText("0.00 s / 1.00 s")).toBeVisible();
   // the time moves while it plays, and the turn leaves a trail
-  await dialog.getByRole("button", { name: "Play" }).click();
-  await expect(dialog.getByRole("button", { name: "Pause" })).toBeVisible();
+  await dialog.getByRole("button", { name: "Play", exact: true }).click();
+  await expect(dialog.getByRole("button", { name: "Pause", exact: true })).toBeVisible();
   await expect
     .poll(async () => (await dialog.getByTestId("replay-trail").getAttribute("d"))?.includes("L"))
     .toBe(true);
-  await dialog.getByRole("button", { name: "Pause" }).click();
+  await dialog.getByRole("button", { name: "Pause", exact: true }).click();
   await expect(dialog.getByText("0.00 s / 1.00 s")).toHaveCount(0);
-  await dialog.getByRole("switch", { name: "Trail" }).click();
+  // the trail is set from the replay settings, and 0 turns it off
+  await dialog.getByRole("button", { name: "Replay settings" }).click();
+  await page.getByRole("slider", { name: "Trail length" }).focus();
+  await page.keyboard.press("Home");
+  await expect(page.getByText("off", { exact: true })).toBeVisible();
+  await page.keyboard.press("Escape");
   await expect(dialog.getByTestId("replay-trail")).toHaveCount(0);
 
   // the timeline starts folded with the replay there, and opens on request
@@ -379,15 +384,24 @@ test("a recording made with target capture replays in its crop, and the crop can
   await expect(timeline).toBeHidden();
   await dialog.getByText("Report intervals over time").click();
   await expect(timeline).toBeVisible();
-  // moving a crop edge shows the replay at that edge
-  await dialog.getByRole("slider", { name: "Crop start" }).focus();
-  for (let i = 0; i < 20; i++) await page.keyboard.press("ArrowRight");
+  // the replay's own track sets the crop, so there's no second slider
+  await expect(dialog.getByRole("slider", { name: "Crop start" })).toHaveCount(0);
+  const time = dialog.getByRole("slider", { name: "Replay time" });
+  await time.focus();
+  await page.keyboard.press("Home");
+  for (let i = 0; i < 150; i++) await page.keyboard.press("ArrowRight");
   await expect(dialog.getByText("0.15 s / 1.00 s")).toBeVisible();
-  // and the end is set where the replay stands
-  await dialog.getByRole("slider", { name: "Replay time" }).focus();
+  // the replay starts 50 ms after the plot, so its 0.15 s is the crop's 0.20 s
+  await dialog.getByRole("button", { name: "Start here" }).click();
+  await expect(dialog.getByText("From 0.20 s")).toBeVisible();
+  await time.focus();
   for (let i = 0; i < 300; i++) await page.keyboard.press("ArrowRight");
   await dialog.getByRole("button", { name: "End here" }).click();
   await expect(dialog.getByText("to 0.50 s")).toBeVisible();
+  await expect(dialog.locator(".replay-kept")).toHaveCount(1);
+  // where target capture saw several targets is marked on the replay's track too
+  await expect(dialog.locator(".replay-crowded > span").first()).toBeAttached();
+  await page.screenshot({ path: "test-results/crop-replay.png" });
   await expect(dialog.getByText("0.30 s kept")).toBeVisible();
 });
 

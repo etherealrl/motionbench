@@ -13,5 +13,13 @@
     "paths": { "@/*": ["./ui/*"] },
     "types": ["bun"]
   },
-  "include": ["tests/ui", "ui", "tests/unit", "tools", "vite.config.ts", "playwright.config.ts"]
+  "include": [
+    "tests/ui",
+    "tests/e2e",
+    "ui",
+    "tests/unit",
+    "tools",
+    "vite.config.ts",
+    "playwright.config.ts"
+  ]
 }

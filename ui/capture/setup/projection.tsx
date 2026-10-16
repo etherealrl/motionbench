@@ -4,7 +4,6 @@ import { Save } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dropdown, DropdownOption } from "@/components/ui/dropdown";
 import { SettingRow, SettingSection } from "@/components/setting-row";
-import { Summary } from "@/components/summary";
 import { native } from "@/lib/native";
 import { updateSettings, useSettings } from "@/lib/settings";
 import type { FovAxis, VisionConfig, VisionStatus } from "@/types";
@@ -96,8 +95,8 @@ function useScreen(config: VisionConfig, status: VisionStatus | undefined): Scre
   return display?.of === picked ? display.size : null;
 }
 
-/** how the game turns counts into the camera's angle. a game fills in its FOV, yaw and pitch, and
- * the sensitivity is yours, kept per game */
+/** how the game turns counts into the camera's angle. a game fills in its numbers, and the
+ * sensitivity, and the FOV where the game lets you change it, are yours */
 export function ProjectionSettings({
   config,
   status,
@@ -108,56 +107,38 @@ export function ProjectionSettings({
   locked: boolean;
 }) {
   const screen = useScreen(config, status);
-  const game = games.find((g) => fitsGame(g, config));
-  const set = (patch: Partial<VisionConfig>) => updateSettings({ vision: { ...config, ...patch } });
-  const update: Update = (key, value) => set({ [key]: value });
-  const fov = (readOnly: boolean) => (
-    <NumberRow
-      setting={["fov", "FOV", "°", 2, "the one in the game's settings"]}
-      config={config}
-      update={update}
-      readOnly={readOnly}
-      description={fovMeaning(config, screen)}
-    />
-  );
+  const targets = useSettings().targets;
+  // the game picked while it still fits, since CS2 and Apex share their numbers
+  const game =
+    games.find((g) => g.id === targets.game && fitsGame(g, config)) ??
+    games.find((g) => fitsGame(g, config));
+  const update: Update = (key, value) =>
+    updateSettings((shown) => ({ vision: { ...shown.vision, [key]: value } }));
   return (
-    <>
-      <SettingSection title="Projection">
-        <fieldset disabled={locked} className="setting-group">
-          <Pick config={config} game={game} set={set} />
+    <SettingSection title="Projection">
+      <fieldset disabled={locked} className="setting-group">
+        <Pick config={config} game={game} />
+        <NumberRow
+          setting={[
+            "sensitivity",
+            "Sensitivity",
+            null,
+            4,
+            "exactly what's in your game's settings",
+          ]}
+          config={config}
+          update={update}
+        />
+        {game?.free && (
           <NumberRow
-            setting={["sensitivity", "Sensitivity", null, 4, "the one in the game's settings"]}
+            setting={["fov", "FOV", "°", 2]}
             config={config}
             update={update}
+            description={`exactly what's in your game's settings, ${fovMeaning(config, screen)}`}
           />
-          {game?.free && fov(false)}
-        </fieldset>
-      </SettingSection>
-      <details className="advanced-settings">
-        <Summary>Game numbers</Summary>
-        <div className="setting-group">
-          {!game?.free && fov(true)}
-          <NumberRow
-            setting={[
-              "yaw",
-              "Yaw",
-              "° per count",
-              4,
-              "how far one count turns the camera sideways at sensitivity 1",
-            ]}
-            config={config}
-            update={update}
-            readOnly
-          />
-          <NumberRow
-            setting={["pitch", "Pitch", "° per count", 4, "the same, up and down"]}
-            config={config}
-            update={update}
-            readOnly
-          />
-        </div>
-      </details>
-    </>
+        )}
+      </fieldset>
+    </SettingSection>
   );
 }
 
@@ -183,33 +164,29 @@ function fovMeaning(config: VisionConfig, screen: Screen | null) {
 }
 
 /** the game to take the numbers from, and saving your sensitivity for it */
-function Pick({
-  config,
-  game,
-  set,
-}: {
-  config: VisionConfig;
-  game: Game | undefined;
-  set: (patch: Partial<VisionConfig>) => void;
-}) {
+function Pick({ config, game }: { config: VisionConfig; game: Game | undefined }) {
   const targets = useSettings().targets;
   const saved = targets.sensitivities;
   const pick = (id: string) => {
     const chosen = games.find((g) => g.id === id)!;
-    set({
-      yaw: chosen.yaw,
-      pitch: chosen.pitch,
-      fov_axis: chosen.fov_axis,
-      fov: chosen.fov,
-      sensitivity: saved[chosen.id] ?? config.sensitivity,
-    });
+    updateSettings((shown) => ({
+      vision: {
+        ...shown.vision,
+        yaw: chosen.yaw,
+        pitch: chosen.pitch,
+        fov_axis: chosen.fov_axis,
+        fov: chosen.fov,
+        sensitivity: shown.targets.sensitivities[chosen.id] ?? shown.vision.sensitivity,
+      },
+      targets: { ...shown.targets, game: chosen.id },
+    }));
   };
   const kept = game !== undefined && saved[game.id] === config.sensitivity;
   return (
     <SettingRow
       id="target-game"
       label="Game"
-      description="fills in the game's FOV, yaw and pitch. save keeps your sensitivity for that game, so picking it again brings it back"
+      description="fills in how the game turns your mouse into the camera. save keeps your sensitivity for that game, so picking it again brings it back"
     >
       <div className="input-with-action">
         <Dropdown
@@ -235,9 +212,15 @@ function Pick({
           disabled={!game || kept}
           onClick={() =>
             game &&
-            updateSettings({
-              targets: { ...targets, sensitivities: { ...saved, [game.id]: config.sensitivity } },
-            })
+            updateSettings((shown) => ({
+              targets: {
+                ...shown.targets,
+                sensitivities: {
+                  ...shown.targets.sensitivities,
+                  [game.id]: shown.vision.sensitivity,
+                },
+              },
+            }))
           }
         >
           <Save />

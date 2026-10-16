@@ -1,11 +1,11 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { Pause, Play } from "lucide-react";
+import { Pause, Play, Settings2 } from "lucide-react";
 import { Notice } from "@/components/notice";
 import { Button } from "@/components/ui/button";
 import { Dropdown, DropdownOption } from "@/components/ui/dropdown";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Slider } from "@/components/ui/slider";
-import { Switch } from "@/components/ui/switch";
 import { TargetStage } from "@/components/target-stage";
 import { colors } from "@/charts/chart";
 import { frameAt, trail } from "@/lib/replay";
@@ -45,10 +45,19 @@ export function ReplayScreen({
   replay,
   error,
   playback,
+  kept,
+  marks,
+  below,
 }: {
   replay: Replay | null;
   error: string | null;
   playback: ReturnType<typeof usePlayback>;
+  /** the span a crop keeps, in the replay's ms, drawn on its track */
+  kept?: [number, number] | null;
+  /** marks over the track, like where target capture saw several targets */
+  marks?: ReactNode;
+  /** what goes right under the track, like the buttons that set the crop from it */
+  below?: ReactNode;
 }) {
   if (error) return <Notice error>{error}</Notice>;
   if (!replay)
@@ -57,19 +66,27 @@ export function ReplayScreen({
         Loading the replay…
       </p>
     );
-  return <Player replay={replay} playback={playback} />;
+  return (
+    <Player replay={replay} playback={playback} kept={kept ?? null} marks={marks} below={below} />
+  );
 }
 
 /** a recording played back: what target capture saw, the crosshair and where it has been */
 function Player({
   replay,
   playback: [now, setNow],
+  kept,
+  marks,
+  below,
 }: {
   replay: Replay;
   playback: ReturnType<typeof usePlayback>;
+  kept: [number, number] | null;
+  marks: ReactNode;
+  below: ReactNode;
 }) {
   const end = replayEnd(replay);
-  const [trailOn, setTrailOn] = useState(true);
+  // none at 0
   const [trailSeconds, setTrailSeconds] = useState(1);
   const frame = frameAt(replay, now.at);
   const clicked = replay.clicks.some((click) => click <= now.at && now.at - click < 120);
@@ -87,7 +104,7 @@ function Player({
         crosshair="dot"
         label="Replayed screen with its targets and the crosshair"
       >
-        {trailOn && (
+        {trailSeconds > 0 && (
           <path
             d={trail(replay, now.at, trailSeconds)}
             fill="none"
@@ -120,14 +137,18 @@ function Player({
         >
           {now.playing ? <Pause /> : <Play />}
         </Button>
-        <Slider
-          aria-label="Replay time"
-          min={0}
-          max={end}
-          step={1}
-          value={[now.at]}
-          onValueChange={([at]) => setNow({ at, playing: false })}
-        />
+        <span className="replay-track">
+          <Slider
+            aria-label="Replay time"
+            min={0}
+            max={end}
+            step={1}
+            value={[now.at]}
+            onValueChange={([at]) => setNow({ at, playing: false })}
+          />
+          {marks}
+          {kept && <KeptSpan kept={kept} end={end} />}
+        </span>
         <span className="replay-time">
           {seconds(now.at)} / {seconds(end)}
         </span>
@@ -145,22 +166,59 @@ function Player({
             ))}
           </Dropdown>
         </span>
+        <TrailSettings seconds={trailSeconds} onChange={setTrailSeconds} />
       </div>
-      <div className="replay-controls">
-        <Switch id="replay-trail" checked={trailOn} onCheckedChange={setTrailOn} />
-        <label htmlFor="replay-trail">Trail</label>
-        <Slider
-          aria-label="Trail length"
-          min={0.1}
-          max={5}
-          step={0.1}
-          disabled={!trailOn}
-          value={[trailSeconds]}
-          onValueChange={([value]) => setTrailSeconds(value)}
-        />
-        <span className="replay-time">last {trailSeconds.toFixed(1)} s</span>
-      </div>
+      {below}
     </div>
+  );
+}
+
+/** how much of the crosshair's path stays drawn, tucked away since it's set once */
+function TrailSettings({
+  seconds,
+  onChange,
+}: {
+  seconds: number;
+  onChange: (seconds: number) => void;
+}) {
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <Button size="icon-sm" variant="outline" aria-label="Replay settings">
+          <Settings2 />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent align="end">
+        <div className="replay-settings">
+          <span className="replay-settings-head">
+            <span>Trail</span>
+            <span className="replay-time">
+              {seconds > 0 ? `last ${seconds.toFixed(1)} s` : "off"}
+            </span>
+          </span>
+          <Slider
+            aria-label="Trail length"
+            min={0}
+            max={5}
+            step={0.1}
+            value={[seconds]}
+            onValueChange={([value]) => onChange(value)}
+          />
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+/** the span a crop keeps, over the replay's track */
+function KeptSpan({ kept: [from, to], end }: { kept: [number, number]; end: number }) {
+  const at = (ms: number) => Math.min(100, Math.max(0, (ms / end) * 100));
+  return (
+    <span
+      className="replay-kept"
+      aria-hidden
+      style={{ "--from": at(from), "--to": at(to) } as CSSProperties}
+    />
   );
 }
 

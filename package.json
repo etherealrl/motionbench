@@ -1,6 +1,6 @@
 {
   "name": "motion-bench",
-  "version": "0.3.2",
+  "version": "0.3.3",
   "private": true,
   "type": "module",
   "scripts": {
@@ -10,6 +10,8 @@
     "test": "vp test",
     "tauri": "tauri",
     "test:ui": "playwright test",
+    "build:e2e": "tauri build --no-bundle --features e2e --config src-tauri/tauri.e2e.conf.json -- --target-dir ../target/e2e",
+    "test:e2e": "playwright test --config tests/e2e/playwright.config.ts",
     "audit": "fallow audit",
     "dupes": "jscpd",
     "fixture": "cargo test --manifest-path src-tauri/Cargo.toml --features developer-tools write_the_ui_fixture -- --ignored"

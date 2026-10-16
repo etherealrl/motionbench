@@ -329,6 +329,23 @@ fn settings_from_0_3_1_with_saved_projections_load_without_a_notice() {
 }
 
 #[test]
+fn the_picked_game_is_saved_and_a_bad_one_changes_nothing() {
+    let dir = tempfile::tempdir().unwrap();
+    let (store, path) = store(&dir);
+    store
+        .update(|s| s.targets.game = Some("apex".into()))
+        .unwrap();
+    assert_eq!(
+        Store::open(path).get().targets.game.as_deref(),
+        Some("apex")
+    );
+    for bad in ["", &"x".repeat(41)] {
+        assert!(store.update(|s| s.targets.game = Some(bad.into())).is_err());
+    }
+    assert_eq!(store.get().targets.game.as_deref(), Some("apex"));
+}
+
+#[test]
 fn the_ui_names_every_fov_axis_the_way_native_reads_it() {
     for axis in ["horizontal", "vertical", "horizontal_4x3"] {
         let mut vision = serde_json::to_value(vision::Config::default()).unwrap();

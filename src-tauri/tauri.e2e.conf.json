@@ -1,0 +1,26 @@
+{
+  "app": {
+    "windows": [
+      {
+        "label": "main",
+        "title": "Motion Bench",
+        "width": 1440,
+        "height": 1000,
+        "minWidth": 1000,
+        "minHeight": 720,
+        "dragDropEnabled": true,
+        "devtools": true
+      }
+    ],
+    "security": {
+      "capabilities": [
+        "desktop",
+        {
+          "identifier": "e2e",
+          "windows": ["main"],
+          "permissions": ["wdio-webdriver:default"]
+        }
+      ]
+    }
+  }
+}

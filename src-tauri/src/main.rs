@@ -137,7 +137,11 @@ fn main() {
             }
         }
     });
-    let app = tauri::Builder::default()
+    let app = tauri::Builder::default();
+    // the end to end tests drive the app through it, a release never has it
+    #[cfg(feature = "e2e")]
+    let app = app.plugin(tauri_plugin_wdio_webdriver::init());
+    let app = app
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .manage(shared);
