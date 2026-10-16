@@ -10,7 +10,6 @@ import { TargetStage } from "@/components/target-stage";
 import { colors } from "@/charts/chart";
 import { frameAt, trail } from "@/lib/replay";
 import type { Replay, Run } from "@/types";
-import { RunDialog, type ShownRun } from "./run-dialog";
 
 const seconds = (ms: number) => `${(ms / 1000).toFixed(2)} s`;
 
@@ -20,19 +19,13 @@ export function hadTargets(run: Run) {
   return !!participants?.some((p) => p.id === "vision");
 }
 
-/** a recording played back: what target capture saw, the crosshair and where it has been */
-export function ReplayRun({ shown, onClose }: { shown: ShownRun | null; onClose: () => void }) {
-  return (
-    <RunDialog shown={shown} title="Replay" className="sm:max-w-4xl" onClose={onClose}>
-      {(run) => <ReplayPlayer key={run.id} run={run} />}
-    </RunDialog>
-  );
-}
-
-function ReplayPlayer({ run }: { run: Run }) {
+/** a recording's replay, loaded when it was made with target capture */
+export function useReplay(run: Run) {
   const [replay, setReplay] = useState<Replay | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const has = hadTargets(run);
   useEffect(() => {
+    if (!has) return;
     let active = true;
     invoke<Replay>("run_replay", { id: run.id })
       .then((loaded) => active && setReplay(loaded))
@@ -40,20 +33,42 @@ function ReplayPlayer({ run }: { run: Run }) {
     return () => {
       active = false;
     };
-  }, [run.id]);
+  }, [run.id, has]);
+  return { has, replay, error };
+}
+
+/** how long a replay runs, in ms */
+export const replayEnd = (replay: Replay | null) => Math.max(1, (replay?.mouse.length ?? 2) - 1);
+
+/** the replay's screen while it loads or once it's there */
+export function ReplayScreen({
+  replay,
+  error,
+  playback,
+}: {
+  replay: Replay | null;
+  error: string | null;
+  playback: ReturnType<typeof usePlayback>;
+}) {
   if (error) return <Notice error>{error}</Notice>;
   if (!replay)
     return (
       <p className="replay-loading field-description" aria-busy="true">
-        Loading the recording…
+        Loading the replay…
       </p>
     );
-  return <Player replay={replay} />;
+  return <Player replay={replay} playback={playback} />;
 }
 
-function Player({ replay }: { replay: Replay }) {
-  const end = Math.max(1, replay.mouse.length - 1);
-  const [now, setNow] = usePlayback(end);
+/** a recording played back: what target capture saw, the crosshair and where it has been */
+function Player({
+  replay,
+  playback: [now, setNow],
+}: {
+  replay: Replay;
+  playback: ReturnType<typeof usePlayback>;
+}) {
+  const end = replayEnd(replay);
   const [trailOn, setTrailOn] = useState(true);
   const [trailSeconds, setTrailSeconds] = useState(1);
   const frame = frameAt(replay, now.at);
@@ -153,7 +168,7 @@ type Playback = { at: number; playing: boolean; speed: number };
 
 /** the replay's clock in ms, moved on by the screen's own frames while it plays and stopped at
  * `end` */
-function usePlayback(end: number) {
+export function usePlayback(end: number) {
   const [state, setState] = useState<Playback>({
     at: 0,
     playing: false,

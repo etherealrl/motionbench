@@ -7,7 +7,7 @@ import type { Replay } from "@/types";
 const replay: Replay = {
   width: 2000,
   height: 1000,
-  horizontal_fov: 90,
+  focal: 1000,
   degrees: [0.1, 0.1],
   starting_pitch: 0,
   from_us: 0,

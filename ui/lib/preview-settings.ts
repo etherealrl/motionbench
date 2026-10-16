@@ -4,7 +4,7 @@ import type { AppSettings } from "@/types";
 export const previewSettings: AppSettings = {
   recording: { button: null },
   capture: { root: null, mouse: null },
-  targets: { start_on_launch: false },
+  targets: { start_on_launch: false, projections: [] },
   aim: { speed: 2000, deadzone_counts: 12, button: 8 },
   vision: {
     provider: "CUDA",
@@ -15,9 +15,8 @@ export const previewSettings: AppSettings = {
     scenario: "",
     adapter: 0,
     output: 0,
-    width: 2560,
-    height: 1440,
-    horizontal_fov: 103,
+    fov: 103,
+    fov_axis: "horizontal",
     sensitivity: 1.6,
     yaw: 0.07,
     pitch: 0.07,
@@ -35,5 +34,5 @@ export const previewSettings: AppSettings = {
     muted: false,
     theme: "system",
   },
-  storage: { folder: null },
+  storage: { folder: null, move_from: null },
 };

@@ -1,5 +1,5 @@
 use super::*;
-use crate::targets::vision::tests::{ORIGIN, frame_at, record, scenario, write_frames};
+use crate::targets::vision::tests::{ORIGIN, SCREEN, frame_at, record, scenario, write_frames};
 
 /// the trial's flick and its frames come back on one timeline: the counts run up as they were
 /// sent, the click is where it was pressed, and each frame sits at its ms from the first report
@@ -34,5 +34,5 @@ fn a_recording_plays_back_on_the_mouse_clock() {
         replay.degrees,
         [cfg.sensitivity * cfg.yaw, cfg.sensitivity * cfg.pitch]
     );
-    assert_eq!(replay.width, cfg.width);
+    assert_eq!([replay.width, replay.height], SCREEN);
 }

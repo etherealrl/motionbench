@@ -6,6 +6,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { cn } from "@/lib/utils";
 import type { Run } from "@/types";
 
 // the shown run outlives open, so the dialog keeps its content and its opener while it closes
@@ -33,7 +34,7 @@ export function RunDialog({
   return (
     <Dialog open={!!shown?.open} onOpenChange={(open) => !open && onClose()}>
       <DialogContent
-        className={className}
+        className={cn("run-dialog", className)}
         onCloseAutoFocus={(event) => {
           if (!shown?.opener) return;
           event.preventDefault();

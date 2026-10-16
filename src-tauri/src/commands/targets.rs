@@ -103,6 +103,29 @@ pub(crate) fn stop_screen_capture(state: &Shared) -> Result<(), String> {
     vision.map_or(Ok(()), |vision| stop_screen(state, aim, vision))
 }
 
+/// the size of the display target capture would copy, so the FOV can be shown along either axis
+/// before it starts. none when there's no such display
+#[tauri::command]
+pub(crate) fn display_size(adapter: u32, output: u32) -> Option<[u32; 2]> {
+    #[cfg(windows)]
+    {
+        use windows::Win32::Graphics::Dxgi::{CreateDXGIFactory1, IDXGIFactory1};
+        let factory: IDXGIFactory1 = unsafe { CreateDXGIFactory1() }.ok()?;
+        let adapter = unsafe { factory.EnumAdapters1(adapter) }.ok()?;
+        let output = unsafe { adapter.EnumOutputs(output) }.ok()?;
+        let area = unsafe { output.GetDesc() }.ok()?.DesktopCoordinates;
+        Some([
+            (area.right - area.left) as u32,
+            (area.bottom - area.top) as u32,
+        ])
+    }
+    #[cfg(not(windows))]
+    {
+        let _ = (adapter, output);
+        None
+    }
+}
+
 /// the class names a target model lists in its metadata, none when it lists none
 #[tauri::command]
 pub(crate) async fn model_classes(path: String) -> Result<Vec<String>, String> {

@@ -16,11 +16,11 @@ an aim trainer scenario with static targets is the easy case. the targets are es
 
 1. in Capture, pick your mouse and check that movement and left clicks show up
 2. in Capture setup, open Target capture, pick the model with Browse, name the scenario and pick the display. a recording without a scenario name gets no target events
-3. set the projection to what the game uses, so the sensitivity, the horizontal FOV, and the yaw and pitch in degrees per count at sensitivity 1 (Valorant and AimLab use 0.07, CS2 uses 0.022)
+3. set the projection to what the game uses. Preset fills in a game's yaw and pitch, and its FOV when the game fixes it (Valorant, CS2), then type your sensitivity and, if the game lets you change it, your FOV. the FOV can be the horizontal one, the vertical one, or the 4:3 one the Source games (CS2, Apex) show in their settings, whichever the game gives you, and the description under it says what that is along the other axes on your display. the save button keeps the whole projection under a name, so switching games later is one pick
 4. start target capture and wait until it's ready. a recording started before that keeps its USB data but has no target events, and so does one cut short by stopping capture or closing the app
 5. record like usual. the trials get built when the recording is saved, and Runs tells you why if a recording ended up with none
 
-the projection matters a lot. if the sensitivity or FOV doesn't match the game, the targets end up in the wrong place relative to your aim, and the judges will separate that instead of what you're testing. Replay (below) is the quick way to check
+the projection matters a lot. if the sensitivity or FOV doesn't match the game, the targets end up in the wrong place relative to your aim, and the judges will separate that instead of what you're testing. the replay (below) is the quick way to check
 
 Start with the app turns target capture on when Motion Bench opens, so the model is loaded by the time you're in game
 
@@ -81,7 +81,7 @@ event building stops at 20 minutes, 10 million reports or 300,000 frames, with a
 
 ## replay
 
-Replay in a recording's ⋯ menu in Runs plays it back, with the targets as circles, your crosshair as a white dot in the middle, a ring when you click, and optionally the path your crosshair took over the last few seconds. you can scrub, pause and slow it down
+Crop and replay, next to Inspect in Runs, plays it back, with the targets as circles, your crosshair as a white dot in the middle, a ring when you click, and optionally the path your crosshair took over the last few seconds. you can scrub, pause and slow it down. it's the same dialog as the crop, so moving a crop edge shows the frame it lands on, and Start here and End here set the crop where the replay is
 
 it's drawn with the same camera math as the trials, so when the projection is right, the dot sits on the target when you click. when it's off, you'll see it right away
 

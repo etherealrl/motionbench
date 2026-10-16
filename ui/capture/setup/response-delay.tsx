@@ -136,9 +136,9 @@ function EstimateResult({
   locked: boolean;
   apply: (delay: number) => void;
 }) {
-  const matching = (
-    ["width", "height", "horizontal_fov", "sensitivity", "yaw", "pitch"] as const
-  ).every((key) => result.profile[key] === profile[key]);
+  const matching = (["fov", "fov_axis", "sensitivity", "yaw", "pitch"] as const).every(
+    (key) => result.profile[key] === profile[key],
+  );
   const curveMax = Math.max(1, ...result.residual_curve.map((v) => v[1]));
   return (
     <div className="calibration-result" role="status">

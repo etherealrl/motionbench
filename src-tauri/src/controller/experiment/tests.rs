@@ -60,6 +60,7 @@ pub(crate) fn setup() -> (MockBox, Link, Worker, Source, Arc<AtomicBool>) {
     let mut state = vision::Status::default();
     state.running = true;
     state.ready = true;
+    state.viewport = [2560, 1440];
     let source = Source {
         config: motion_bench::targets::vision::Config {
             scenario: "single-target test".into(),
@@ -213,7 +214,7 @@ fn centered_target_pauses_injections_and_hysteresis_waits_for_a_new_offset() {
     let commands = worker.snapshot().commands;
     for center in [[1285.0, 720.0], [1275.0, 720.0], [1280.0, 727.0]] {
         frame_at(&source, 1, 0, center);
-        let target = source.config.counts(center[0], center[1]);
+        let target = source.config.counts([2560, 1440], center[0], center[1]);
         wait(|| worker.snapshot().target_counts == Some(target));
         assert_eq!(worker.snapshot().commands, commands);
         assert_eq!(worker.snapshot().phase, "Settled in deadzone");

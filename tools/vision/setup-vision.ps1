@@ -28,10 +28,8 @@ function Extract-Runtime($archive, $destination, $pattern, $noticePrefix) {
 }
 
 $runtime = Join-Path $PSScriptRoot '../../src-tauri/runtime'
-$release = Invoke-RestMethod 'https://api.github.com/repos/microsoft/onnxruntime/releases/tags/v1.27.1'
-$asset = $release.assets | Where-Object { $_.name -eq 'onnxruntime-win-x64-gpu_cuda13-1.27.1.zip' }
-if (!$asset.digest) { throw 'The pinned ONNX Runtime asset has no checksum' }
-$archive = Download 'onnxruntime-1.27.1-cuda13.zip' $asset.browser_download_url ($asset.digest -replace '^sha256:', '')
+# the hash is pinned like the others, since asking GitHub for it hits its rate limit on shared CI runners
+$archive = Download 'onnxruntime-1.27.1-cuda13.zip' 'https://github.com/microsoft/onnxruntime/releases/download/v1.27.1/onnxruntime-win-x64-gpu_cuda13-1.27.1.zip' '1a88828fb1ca78c9920637acf0f8d8ce40a854bef874128c55193e3d1a2b9ef8'
 Extract-Runtime $archive $runtime '/lib/(onnxruntime|onnxruntime_providers_(shared|cuda|tensorrt))\.dll$' 'ort-cuda'
 $archive = Download 'ort-directml.nupkg' 'https://api.nuget.org/v3-flatcontainer/microsoft.ml.onnxruntime.directml/1.24.4/microsoft.ml.onnxruntime.directml.1.24.4.nupkg' '57e9f11b73437bef7a309496135d4c1f96b1a8e9ddba60013fa27bfc1d788681'
 Extract-Runtime $archive (Join-Path $runtime 'directml') '^runtimes/win-x64/native/.*\.dll$' 'ort-directml'

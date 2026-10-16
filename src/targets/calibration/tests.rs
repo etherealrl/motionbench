@@ -1,15 +1,18 @@
 use super::*;
-use crate::targets::vision::Evidence;
-/// the projection these tests were worked out with: CS2, whose 4:3 view stretched to 16:9 shows
-/// 106.26 degrees across
+use crate::targets::vision::{Evidence, FovAxis, VISION_SCHEMA};
+/// the projection these tests were worked out with: CS2, whose 90 degrees at 4:3 show 106.26
+/// degrees across a 16:9 screen
 fn cs2() -> Config {
     Config {
-        horizontal_fov: 106.2602047083,
+        fov: 90.0,
+        fov_axis: FovAxis::Horizontal4x3,
         yaw: 0.022,
         pitch: 0.022,
         ..Config::default()
     }
 }
+/// the screen the tests are worked out on
+const SCREEN: Screen = [2560, 1440];
 type Motion = Vec<(u64, [f64; 2])>;
 type Observations = Vec<(u64, [f64; 2], f64)>;
 /// where a target in `direction` shows on screen, in the counts `Config::counts` gives, for a
@@ -47,7 +50,7 @@ fn fixture_at(linear: bool, pitch: f64, swing: f64) -> (Motion, Observations) {
             [(t * 4.7).sin() * swing, (t * 2.9).cos() * swing * 0.75]
         }
     };
-    let target = Camera::new(&profile).direction([60.0, -40.0], [0.0, 0.0], pitch);
+    let target = Camera::new(&profile, SCREEN).direction([60.0, -40.0], [0.0, 0.0], pitch);
     let motion = (0..6001)
         .map(|i| (1_000_000 + i * 1000, path(i as f64 / 1000.0)))
         .collect();
@@ -66,7 +69,7 @@ fn fixture(linear: bool) -> (Motion, Observations) {
 #[test]
 fn varying_movement_recovers_delay_and_preserves_unknown_hardware_latency() {
     let (m, f) = fixture(false);
-    let r = fit(&cs2(), &m, &f).unwrap();
+    let r = fit(&cs2(), SCREEN, &m, &f).unwrap();
     assert!(r.estimated_delay_ms.abs_diff(37) <= 1);
     assert!(r.identifiable);
     assert!(!r.absolute_hardware_latency_known && !r.applied_to_scores);
@@ -76,7 +79,7 @@ fn varying_movement_recovers_delay_and_preserves_unknown_hardware_latency() {
 #[test]
 fn a_target_above_the_camera_fits_with_wide_swings() {
     let (m, f) = fixture_at(false, 26.0, 900.0);
-    let r = fit(&cs2(), &m, &f).unwrap();
+    let r = fit(&cs2(), SCREEN, &m, &f).unwrap();
     assert!(
         r.estimated_delay_ms.abs_diff(37) <= 1,
         "{}",
@@ -90,11 +93,11 @@ fn a_target_above_the_camera_fits_with_wide_swings() {
 #[test]
 fn constant_velocity_cannot_identify_delay_and_gaps_are_rejected() {
     let (m, mut f) = fixture(true);
-    let r = fit(&cs2(), &m, &f).unwrap();
+    let r = fit(&cs2(), SCREEN, &m, &f).unwrap();
     assert!(!r.identifiable);
     assert_eq!(r.admissible_delay_ms, [0, 250]);
     f.drain(150..180);
-    assert!(fit(&cs2(), &m, &f).err().unwrap().contains("gaps"));
+    assert!(fit(&cs2(), SCREEN, &m, &f).err().unwrap().contains("gaps"));
 }
 #[test]
 fn recording_import_selects_single_target_coverage() {
@@ -154,8 +157,9 @@ fn recording_import_selects_single_target_coverage() {
     )
     .unwrap();
     let evidence = Evidence {
-        schema: "motion-bench.vision.v1".into(),
+        schema: VISION_SCHEMA.into(),
         config: config.clone(),
+        screen: SCREEN,
         model_sha256: "synthetic".into(),
         provider: "synthetic".into(),
         pipeline: "synthetic".into(),
@@ -169,8 +173,8 @@ fn recording_import_selects_single_target_coverage() {
         serde_json::to_vec(&evidence).unwrap(),
     )
     .unwrap();
-    let focal = config.width as f64 / (2.0 * (config.horizontal_fov.to_radians() / 2.0).tan());
-    let target = Camera::new(&config).direction([500.0, 200.0], [0.0, 0.0], 0.0);
+    let focal = config.focal(SCREEN);
+    let target = Camera::new(&config, SCREEN).direction([500.0, 200.0], [0.0, 0.0], 0.0);
     let mut journal = String::new();
     for i in 0..600u64 {
         let t = origin + i * 10_000;
@@ -181,11 +185,11 @@ fn recording_import_selects_single_target_coverage() {
             0.0,
         );
         let px = |v: f64| {
-            config.width as f64 / 2.0
+            SCREEN[0] as f64 / 2.0
                 + (v * config.sensitivity * config.yaw).to_radians().tan() * focal
         };
         let py = |v: f64| {
-            config.height as f64 / 2.0
+            SCREEN[1] as f64 / 2.0
                 + (v * config.sensitivity * config.pitch).to_radians().tan() * focal
         };
         let d = Detection {

@@ -458,11 +458,12 @@ fn every_analysis_of_a_run_reads_its_crop() {
     std::fs::write(
         pcap.with_extension("vision.json"),
         serde_json::to_vec(&motion_bench::targets::vision::Evidence {
-            schema: "motion-bench.vision.v1".into(),
+            schema: motion_bench::targets::vision::VISION_SCHEMA.into(),
             config: motion_bench::targets::vision::Config {
                 scenario: "stationary target".into(),
                 ..Default::default()
             },
+            screen: [2560, 1440],
             model_sha256: "x".into(),
             provider: "CUDA".into(),
             pipeline: "synthetic".into(),

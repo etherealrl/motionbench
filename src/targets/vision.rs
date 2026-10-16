@@ -11,6 +11,20 @@ use std::{
     path::Path,
 };
 
+/// which way across the screen the FOV is measured. games say it differently: Valorant and
+/// Overwatch across the width, some across the height, and the Source games (CS2, Apex) across
+/// the width of a 4:3 screen whatever the screen really is
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum FovAxis {
+    Horizontal,
+    Vertical,
+    Horizontal4x3,
+}
+
+/// the captured screen's size in pixels, read from the display when target capture starts
+pub type Screen = [u32; 2];
+
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Config {
@@ -22,9 +36,8 @@ pub struct Config {
     pub scenario: String,
     pub output: u32,
     pub adapter: u32,
-    pub width: u32,
-    pub height: u32,
-    pub horizontal_fov: f64,
+    pub fov: f64,
+    pub fov_axis: FovAxis,
     pub sensitivity: f64,
     pub yaw: f64,
     pub pitch: f64,
@@ -46,9 +59,8 @@ impl Default for Config {
             scenario: String::new(),
             output: 0,
             adapter: 0,
-            width: 2560,
-            height: 1440,
-            horizontal_fov: 103.0,
+            fov: 103.0,
+            fov_axis: FovAxis::Horizontal,
             sensitivity: 1.6,
             yaw: 0.07,
             pitch: 0.07,
@@ -69,12 +81,7 @@ impl Config {
             || self.output > 16
             || self.target_class < -1
             || self.target_class > 999
-            || self.width < 320
-            || self.width > 7680
-            || self.height < 240
-            || self.height > 4320
-            || !(30.0..150.0).contains(&self.horizontal_fov)
-            || !self.horizontal_fov.is_finite()
+            || !(10.0..=170.0).contains(&self.fov)
             || !(0.01..20.0).contains(&self.sensitivity)
             || !self.sensitivity.is_finite()
             || !(0.001..1.0).contains(&self.yaw)
@@ -94,22 +101,31 @@ impl Config {
     pub fn frame_interval(&self) -> Option<std::time::Duration> {
         (self.fps != 0).then(|| std::time::Duration::from_secs_f64(1.0 / self.fps as f64))
     }
-    pub fn counts(&self, x: f64, y: f64) -> [f64; 2] {
-        let focal = self.width as f64 / (2.0 * (self.horizontal_fov.to_radians() / 2.0).tan());
+    /// how far the eye sits from `screen` in pixels, from the FOV along its axis
+    pub fn focal(&self, [width, height]: Screen) -> f64 {
+        let across = match self.fov_axis {
+            FovAxis::Horizontal => width as f64,
+            FovAxis::Vertical => height as f64,
+            FovAxis::Horizontal4x3 => height as f64 * 4.0 / 3.0,
+        };
+        across / (2.0 * (self.fov.to_radians() / 2.0).tan())
+    }
+    pub fn counts(&self, screen: Screen, x: f64, y: f64) -> [f64; 2] {
+        let focal = self.focal(screen);
         [
-            (x - self.width as f64 / 2.0).atan2(focal).to_degrees() / (self.sensitivity * self.yaw),
-            (y - self.height as f64 / 2.0).atan2(focal).to_degrees()
+            (x - screen[0] as f64 / 2.0).atan2(focal).to_degrees() / (self.sensitivity * self.yaw),
+            (y - screen[1] as f64 / 2.0).atan2(focal).to_degrees()
                 / (self.sensitivity * self.pitch),
         ]
     }
     /// the box's center in the counts `counts` gives, and the angular radius of the ball inscribed in
     /// it, in yaw counts. the angle between two points on screen does not change as the camera
     /// turns, so neither the pitch nor the mouse counts change it
-    pub fn geometry(&self, b: &Detection) -> ([f64; 2], f64) {
+    pub fn geometry(&self, screen: Screen, b: &Detection) -> ([f64; 2], f64) {
         let [left, top, right, bottom] = b.bounds;
         let (x, y) = ((left + right) / 2.0, (top + bottom) / 2.0);
-        let camera = Camera::new(self);
-        let toward = |x, y| camera.direction(self.counts(x, y), [0.0; 2], 0.0);
+        let camera = Camera::new(self, screen);
+        let toward = |x, y| camera.direction(self.counts(screen, x, y), [0.0; 2], 0.0);
         let center = toward(x, y);
         // each edge of the box is a plane through the eye that a ball's outline touches, and the
         // box's middle sits off the ball's own center away from the screen's middle, so the radius
@@ -121,7 +137,7 @@ impl Config {
             (90.0 / camera.degrees[0] - camera.apart(center, normal)).abs()
         };
         let radius = ((edge(0) + edge(2)) / 2.0).min((edge(1) + edge(3)) / 2.0);
-        (self.counts(x, y), radius)
+        (self.counts(screen, x, y), radius)
     }
 }
 /// the game's camera: a target's place on screen and the mouse's counts so far give the target's
@@ -144,9 +160,9 @@ pub(crate) struct Camera {
     degrees: [f64; 2],
 }
 impl Camera {
-    pub(crate) fn new(profile: &Config) -> Self {
+    pub(crate) fn new(profile: &Config, screen: Screen) -> Self {
         Self {
-            focal: profile.width as f64 / (2.0 * (profile.horizontal_fov.to_radians() / 2.0).tan()),
+            focal: profile.focal(screen),
             degrees: [
                 profile.sensitivity * profile.yaw,
                 profile.sensitivity * profile.pitch,
@@ -231,7 +247,6 @@ impl Frame {
     /// a frame that reads whole and whose time follows from the screen's clock, which is what
     /// lines it up with the mouse's reports
     pub fn validate(&self, evidence: &Evidence) -> Result<(), String> {
-        let config = &evidence.config;
         if self.source_us == 0
             || self.detections.len() > 32
             || self.detections.iter().any(|d| {
@@ -240,8 +255,8 @@ impl Frame {
                     || !(0.0..=1.0).contains(&d.confidence)
                     || d.bounds[0] < 0.0
                     || d.bounds[1] < 0.0
-                    || d.bounds[2] > config.width as f64
-                    || d.bounds[3] > config.height as f64
+                    || d.bounds[2] > evidence.screen[0] as f64
+                    || d.bounds[3] > evidence.screen[1] as f64
                     || d.bounds[2] <= d.bounds[0]
                     || d.bounds[3] <= d.bounds[1]
             })
@@ -333,6 +348,7 @@ pub fn yolo8(
 pub struct Evidence {
     pub schema: String,
     pub config: Config,
+    pub screen: Screen,
     pub model_sha256: String,
     pub provider: String,
     pub pipeline: String,
@@ -395,16 +411,42 @@ type Sighting = (usize, [f64; 2], f64);
 const NO_CLOCK: &str =
     "the screen recording has no clock, so its frames can't be lined up with the mouse";
 
+pub const VISION_SCHEMA: &str = "motion-bench.vision.v2";
+
 /// the target capture beside `pcap`, refused with `incomplete` when it did not finish whole
 pub(crate) fn whole_evidence(pcap: &Path, incomplete: &str) -> Result<Evidence, String> {
-    let evidence: Evidence = serde_json::from_slice(
+    let saved: serde_json::Value = serde_json::from_slice(
         &std::fs::read(pcap.with_extension("vision.json")).map_err(|e| e.to_string())?,
     )
     .map_err(|e| e.to_string())?;
+    let saved = match saved["schema"].as_str() {
+        Some(VISION_SCHEMA) => saved,
+        Some("motion-bench.vision.v1") => from_v1(saved),
+        _ => return Err("this target capture was saved by a newer version of the app".into()),
+    };
+    let evidence: Evidence = serde_json::from_value(saved).map_err(|e| e.to_string())?;
     if !evidence.complete || evidence.error.is_some() {
         return Err(incomplete.into());
     }
     Ok(evidence)
+}
+
+/// a target capture from 0.3.0. it kept the screen's size in its settings, and its FOV was always
+/// measured across the screen's width
+fn from_v1(mut saved: serde_json::Value) -> serde_json::Value {
+    let config = &mut saved["config"];
+    let screen = serde_json::json!([config["width"], config["height"]]);
+    if let Some(config) = config.as_object_mut() {
+        config.remove("width");
+        config.remove("height");
+        if let Some(fov) = config.remove("horizontal_fov") {
+            config.insert("fov".into(), fov);
+            config.insert("fov_axis".into(), "horizontal".into());
+        }
+    }
+    saved["screen"] = screen;
+    saved["schema"] = VISION_SCHEMA.into();
+    saved
 }
 
 /// the longest recording events are built from, twenty minutes
@@ -694,7 +736,7 @@ fn build(pcap: &Path) -> Result<usize, String> {
                     observed
                         .iter()
                         .map(|(i, f)| {
-                            let (offset, radius) = cfg.geometry(&f.detections[0]);
+                            let (offset, radius) = cfg.geometry(evidence.screen, &f.detections[0]);
                             (*i, offset, radius)
                         })
                         .collect(),
@@ -705,7 +747,7 @@ fn build(pcap: &Path) -> Result<usize, String> {
             candidate
         })
         .collect();
-    let camera = Camera::new(cfg);
+    let camera = Camera::new(cfg, evidence.screen);
     // how far, in counts, each event's observations point from their mean direction, summed over
     // the events; a stationary target stays in one direction, so the spread is the misfit
     let spread = |pitch: f64| -> f64 {

@@ -160,3 +160,27 @@
   place-items: center;
   height: 420px;
 }
+/* the timeline folds away under its own title, a step above the track */
+.crop-timeline > summary {
+  margin-bottom: var(--spacing-row);
+}
+.crop-timeline:not([open]) > summary {
+  margin-bottom: 0;
+}
+/* what's kept on the left, the buttons that set it from the replay on the right */
+.crop-summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--spacing-inline) var(--spacing-row);
+}
+.crop-at {
+  display: flex;
+  gap: var(--spacing-inline);
+}
+/* a dialog taller than the window scrolls inside it, the root zoom scales the viewport units */
+.run-dialog {
+  max-height: calc((100dvh - 32px) / var(--ui-scale, 1)); /* pixels: a margin above and below */
+  overflow-y: auto;
+}
