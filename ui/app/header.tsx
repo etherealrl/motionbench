@@ -1,14 +1,5 @@
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import {
-  ALargeSmall,
-  Import,
-  Mouse,
-  Settings,
-  Volume2,
-  VolumeX,
-  FolderOpen,
-  SunMoon,
-} from "lucide-react";
+import { useLayoutEffect, useRef, useState } from "react";
+import { ALargeSmall, Import, Mouse, Settings, Volume2, VolumeX, SunMoon } from "lucide-react";
 import { InfoTip } from "@/components/info-tip";
 import { Badge, type BadgeTone } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -16,9 +7,8 @@ import { Dropdown, DropdownOption } from "@/components/ui/dropdown";
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
 import { Slider } from "@/components/ui/slider";
 import { TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { invoke } from "@tauri-apps/api/core";
-import { open } from "@tauri-apps/plugin-dialog";
-import { setRecordingsFolder, updateSettings, useSettings } from "@/lib/settings";
+import { updateSettings, useSettings } from "@/lib/settings";
+import { RecordingsFolder } from "@/app/recordings-folder";
 import { native } from "@/lib/native";
 import { recordingTime } from "@/capture/recording";
 import { useTheme } from "@/lib/theme";
@@ -147,66 +137,6 @@ function SettingsMenu({ onError }: { onError: (message: string) => void }) {
         {native && <RecordingsFolder onError={onError} />}
       </PopoverContent>
     </Popover>
-  );
-}
-
-type Folders = { running: string; fallback: string };
-
-/** where recordings go. a new folder is used from the next start, since the library and the recorder
- * already have this one open, so the row offers the restart */
-function RecordingsFolder({ onError }: { onError: (message: string) => void }) {
-  const [folders, setFolders] = useState<Folders | null>(null);
-  useEffect(() => {
-    invoke<Folders>("recordings_folders").then(setFolders, (e) => onError(String(e)));
-  }, [onError]);
-  const picked = useSettings().storage.folder;
-  if (!folders) return null;
-  const next = picked ?? folders.fallback;
-  const choose = async (folder: string | null) => {
-    try {
-      await setRecordingsFolder(folder);
-    } catch (e) {
-      onError(String(e));
-    }
-  };
-  const browse = async () => {
-    const folder = await open({ directory: true, defaultPath: next });
-    if (typeof folder === "string") await choose(folder);
-  };
-  return (
-    <div className="settings-row settings-row-top">
-      <span className="settings-icon">
-        <FolderOpen aria-hidden className="size-4" />
-      </span>
-      <div className="settings-folder" role="group" aria-label="Recordings folder">
-        <span className="settings-path" title={next}>
-          {next}
-        </span>
-        <div className="settings-folder-actions">
-          <Button size="sm" variant="outline" onClick={() => void browse()}>
-            Change
-          </Button>
-          {picked && (
-            <Button size="sm" variant="ghost" onClick={() => void choose(null)}>
-              Default
-            </Button>
-          )}
-        </div>
-        {next !== folders.running && (
-          <div className="settings-restart">
-            <small>
-              new recordings go here after a restart, the ones you already made stay where they are
-            </small>
-            <Button
-              size="sm"
-              onClick={() => void invoke("restart_app").catch((e) => onError(String(e)))}
-            >
-              Restart
-            </Button>
-          </div>
-        )}
-      </div>
-    </div>
   );
 }
 

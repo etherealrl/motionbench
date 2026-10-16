@@ -213,13 +213,16 @@ const calls = (page: Page, command: string) =>
 test("a crop is chosen over the whole recording and saved to the library", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 900 });
   await open(page);
-  const menu = page.getByRole("button", {
-    name: "More actions for first.pcap",
-  });
-  await menu.click();
-  await page.getByRole("menuitem", { name: "Crop" }).click();
+  // it sits beside Inspect, Crop alone since this one has no target capture to replay
+  const button = page
+    .getByRole("row", { name: /first.pcap/ })
+    .getByRole("button", { name: "Crop", exact: true });
+  await button.click();
   const dialog = page.getByRole("dialog", { name: "Crop" });
+  await expect(dialog.getByRole("button", { name: "Start here" })).toHaveCount(0);
   await expect(dialog.getByLabel(/Report interval timeline, whole recording/)).toBeVisible();
+  // opening unfolded isn't a choice, so a replay later still starts folded
+  expect(await page.evaluate(() => localStorage.getItem("crop-timeline-open"))).toBeNull();
   expect((await calls(page, "run_plot")).at(-1)).toMatchObject({
     id: "first",
     uncropped: true,
@@ -244,7 +247,7 @@ test("a crop is chosen over the whole recording and saved to the library", async
   await page.screenshot({ path: "test-results/crop-dialog.png" });
   await dialog.getByRole("button", { name: "Save" }).click();
   await expect(dialog).toHaveCount(0);
-  await expect(menu).toBeFocused();
+  await expect(button).toBeFocused();
   const first = runPlot.from_us;
   expect((await calls(page, "set_crop")).at(-1)).toEqual({
     id: "first",
@@ -254,8 +257,7 @@ test("a crop is chosen over the whole recording and saved to the library", async
   await page.screenshot({ path: "test-results/crop-row.png" });
 
   // it opens on the saved crop, and Reset saves none
-  await menu.click();
-  await page.getByRole("menuitem", { name: "Crop" }).click();
+  await button.click();
   await expect(dialog.getByText("From 0.10 s")).toBeVisible();
   await dialog.getByRole("button", { name: "Reset" }).click();
   await expect(dialog.getByRole("button", { name: "Reset" })).toBeDisabled();
@@ -328,19 +330,20 @@ test("a recording made with target capture says why it has no trajectory", async
   await expect(page.locator(".run-status-reason")).toHaveCount(2);
 });
 
-test("a recording made with target capture replays its screen, crosshair and trail", async ({
+test("a recording made with target capture replays in its crop, and the crop can be set from it", async ({
   page,
 }) => {
-  await page.addInitScript(() => {
+  // its clock starts 50 ms after the plot's, like a replay whose first reports carried no movement
+  await page.addInitScript((from_us) => {
     // a 90 degree screen, still for 100 ms, then turned 100 counts right, 10 degrees, by 200 ms,
     // with a target seen to the right and clicked at 250 ms
     (window as unknown as { replayData: unknown }).replayData = {
       width: 2000,
       height: 1000,
-      horizontal_fov: 90,
+      focal: 1000,
       degrees: [0.1, 0.1],
       starting_pitch: 0,
-      from_us: 0,
+      from_us,
       mouse: Array.from({ length: 1000 }, (_, i) => [Math.max(0, Math.min(100, i - 100)), 0]),
       clicks: [250],
       frames: [
@@ -348,15 +351,15 @@ test("a recording made with target capture replays its screen, crosshair and tra
         { at_ms: 200, boxes: [[950, 450, 1050, 550]] },
       ],
     };
-  });
+  }, runPlot.from_us + 50_000);
   await open(page);
   // only a recording with target capture has a replay
-  await page.getByRole("button", { name: "More actions for first.pcap" }).click();
-  await expect(page.getByRole("menuitem", { name: "Replay" })).toHaveCount(0);
-  await page.keyboard.press("Escape");
-  await page.getByRole("button", { name: "More actions for second.pcap" }).click();
-  await page.getByRole("menuitem", { name: "Replay" }).click();
-  const dialog = page.getByRole("dialog", { name: "Replay" });
+  await expect(page.getByRole("button", { name: "Crop and replay" })).toHaveCount(1);
+  await page
+    .getByRole("row", { name: /second.pcap/ })
+    .getByRole("button", { name: "Crop and replay" })
+    .click();
+  const dialog = page.getByRole("dialog", { name: "Crop and replay" });
   await expect(dialog.getByTestId("crosshair")).toBeVisible();
   await expect(dialog.getByTestId("detected-target")).toHaveCount(1);
   await expect(dialog.getByText("0.00 s / 1.00 s")).toBeVisible();
@@ -370,6 +373,22 @@ test("a recording made with target capture replays its screen, crosshair and tra
   await expect(dialog.getByText("0.00 s / 1.00 s")).toHaveCount(0);
   await dialog.getByRole("switch", { name: "Trail" }).click();
   await expect(dialog.getByTestId("replay-trail")).toHaveCount(0);
+
+  // the timeline starts folded with the replay there, and opens on request
+  const timeline = dialog.getByLabel(/Report interval timeline, whole recording/);
+  await expect(timeline).toBeHidden();
+  await dialog.getByText("Report intervals over time").click();
+  await expect(timeline).toBeVisible();
+  // moving a crop edge shows the replay at that edge
+  await dialog.getByRole("slider", { name: "Crop start" }).focus();
+  for (let i = 0; i < 20; i++) await page.keyboard.press("ArrowRight");
+  await expect(dialog.getByText("0.15 s / 1.00 s")).toBeVisible();
+  // and the end is set where the replay stands
+  await dialog.getByRole("slider", { name: "Replay time" }).focus();
+  for (let i = 0; i < 300; i++) await page.keyboard.press("ArrowRight");
+  await dialog.getByRole("button", { name: "End here" }).click();
+  await expect(dialog.getByText("to 0.50 s")).toBeVisible();
+  await expect(dialog.getByText("0.30 s kept")).toBeVisible();
 });
 
 test("the table's columns are dragged wider by their edges, remembered, and reset by a double click", async ({

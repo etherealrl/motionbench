@@ -512,10 +512,11 @@ export interface AppSettings {
   targets: TargetSettings;
   display: DisplaySettings;
   /** where recordings go from the next start on, null for Motion Bench in Documents */
-  storage: { folder: string | null };
+  storage: { folder: string | null; move_from: string | null };
 }
 export interface TargetSettings {
   start_on_launch: boolean;
+  projections: Projection[];
 }
 /** what the ui may change, each section whole */
 export interface SettingsPatch {
@@ -543,6 +544,17 @@ export interface ExperimentStatus {
   /** the buttons' trouble: the feed is gone, or a learned button could not be saved */
   buttons_error?: string | null;
 }
+/** which way across the screen a FOV is measured, 4:3 being the width of a 4:3 screen as tall */
+export type FovAxis = "horizontal" | "vertical" | "horizontal_4x3";
+/** a game's projection saved by name */
+export interface Projection {
+  name: string;
+  sensitivity: number;
+  fov: number;
+  fov_axis: FovAxis;
+  yaw: number;
+  pitch: number;
+}
 export interface VisionConfig {
   provider: string;
   cuda_device: number;
@@ -552,9 +564,8 @@ export interface VisionConfig {
   scenario: string;
   adapter: number;
   output: number;
-  width: number;
-  height: number;
-  horizontal_fov: number;
+  fov: number;
+  fov_axis: FovAxis;
   sensitivity: number;
   yaw: number;
   pitch: number;
@@ -618,7 +629,8 @@ export interface VisionStatus {
 export interface Replay {
   width: number;
   height: number;
-  horizontal_fov: number;
+  /** how far the eye sits from the screen, in pixels */
+  focal: number;
   /** degrees per count, yaw then pitch */
   degrees: [number, number];
   starting_pitch: number;

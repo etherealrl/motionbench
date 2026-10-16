@@ -33,7 +33,7 @@ export function crosshairAt(replay: Replay, then: number, now: number) {
   const view = camera(replay, now);
   const depth = dot(direction, view.forward);
   if (depth <= 1e-6) return null;
-  const focal = replay.width / (2 * Math.tan(radians(replay.horizontal_fov) / 2));
+  const focal = replay.focal;
   return [
     replay.width / 2 + (focal * dot(direction, view.right)) / depth,
     replay.height / 2 - (focal * dot(direction, view.up)) / depth,

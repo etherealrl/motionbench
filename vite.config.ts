@@ -20,6 +20,7 @@ export default defineConfig({
             "recording-popover",
             "population-trigger",
             "mouse-binding-picker",
+            "run-dialog",
           ],
         },
       ],

@@ -31,6 +31,8 @@ pub struct Settings {
 #[serde(deny_unknown_fields)]
 pub struct Storage {
     pub folder: Option<std::path::PathBuf>,
+    /// the folder the recordings move out of at the next start, into the one picked
+    pub move_from: Option<std::path::PathBuf>,
 }
 /// target capture starts by itself when the app does, if asked to; off unless chosen, since it
 /// takes the GPU and the screen
@@ -38,6 +40,20 @@ pub struct Storage {
 #[serde(deny_unknown_fields)]
 pub struct Targets {
     pub start_on_launch: bool,
+    /// the projections saved by name, so switching games is one pick
+    #[serde(default)]
+    pub projections: Vec<Projection>,
+}
+/// a game's projection as it was saved
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Projection {
+    pub name: String,
+    pub sensitivity: f64,
+    pub fov: f64,
+    pub fov_axis: vision::FovAxis,
+    pub yaw: f64,
+    pub pitch: f64,
 }
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -217,13 +233,37 @@ impl Settings {
         if !(0.0..=100.0).contains(&aim.deadzone_counts) {
             return Err("the deadzone is between 0 and 100 mouse counts".into());
         }
-        if self
-            .storage
-            .folder
-            .as_ref()
-            .is_some_and(|f| !f.is_absolute())
+        if [&self.storage.folder, &self.storage.move_from]
+            .into_iter()
+            .flatten()
+            .any(|f| !f.is_absolute())
         {
             return Err("the recordings folder has to be a full path".into());
+        }
+        let projections = &self.targets.projections;
+        for (i, saved) in projections.iter().enumerate() {
+            let name = saved.name.trim();
+            if name.is_empty() || name.chars().count() > 60 || name != saved.name {
+                return Err("a projection's name is 1 to 60 characters".into());
+            }
+            if projections[..i]
+                .iter()
+                .any(|other| other.name == saved.name)
+            {
+                return Err(format!("there's already a projection called {name}"));
+            }
+            vision::Config {
+                sensitivity: saved.sensitivity,
+                fov: saved.fov,
+                fov_axis: saved.fov_axis,
+                yaw: saved.yaw,
+                pitch: saved.pitch,
+                ..vision::Config::default()
+            }
+            .validate()?;
+        }
+        if projections.len() > 100 {
+            return Err("there are more than 100 saved projections".into());
         }
         self.vision.validate()
     }
@@ -290,18 +330,15 @@ impl Store {
             Err(reason) => Self::refused(PathBuf::new(), format!("{reason}, {NOT_SAVED}")),
         }
     }
-    /// the saved settings, or the defaults with a notice. a corrupt file is replaced only once a
-    /// copy of it is kept; a missing one is written with the first change
+    /// the saved settings, or the defaults with a notice. a file that's partly or wholly unusable is
+    /// replaced only once a copy of it is kept, and a missing one is written with the first change
     pub fn open(path: PathBuf) -> Self {
         let notice = match read(&path) {
             Ok(saved) => return Self::with(path, saved.unwrap_or_default(), false, None, None),
-            Err(Unusable::Corrupt { bytes, reason }) => match backup::preserve(&path, &bytes) {
+            Err(Unusable::Corrupt { bytes, what, kept }) => match backup::preserve(&path, &bytes) {
                 Ok(copy) => {
-                    let notice = format!(
-                        "the settings could not be read ({reason}), so they were reset to the defaults. the old file is kept as {}",
-                        copy.display()
-                    );
-                    let (notice, unsaved) = match write(&path, &Settings::default()) {
+                    let notice = format!("{what}. the old file is kept as {}", copy.display());
+                    let (notice, unsaved) = match write(&path, &kept) {
                         Ok(()) => (notice, None),
                         Err(e) => (
                             format!(
@@ -310,10 +347,10 @@ impl Store {
                             Some(e),
                         ),
                     };
-                    return Self::with(path, Settings::default(), false, Some(notice), unsaved);
+                    return Self::with(path, *kept, false, Some(notice), unsaved);
                 }
                 Err(e) => format!(
-                    "the settings could not be read ({reason}) and a copy of them could not be kept ({e}), so the file was left as it is and {NOT_SAVED}"
+                    "{what}, but a copy of the old file could not be kept ({e}), so it was left as it is and {NOT_SAVED}"
                 ),
             },
             Err(Unusable::Refused(reason)) => format!("{reason}, {NOT_SAVED}"),
@@ -368,12 +405,25 @@ impl Store {
 
 const NOT_SAVED: &str = "so the defaults are in use and changes to them are not saved";
 
-/// why the saved settings were not used. only a corrupt file may be replaced, and only once a copy
-/// of it is kept
+/// why the saved settings were not used as they are. only a corrupt file may be replaced, with the
+/// settings it still gave, and only once a copy of it is kept
 #[derive(Debug)]
 enum Unusable {
-    Corrupt { bytes: Vec<u8>, reason: String },
+    Corrupt {
+        bytes: Vec<u8>,
+        what: String,
+        kept: Box<Settings>,
+    },
     Refused(String),
+}
+fn corrupt(bytes: Vec<u8>, reason: impl std::fmt::Display) -> Unusable {
+    Unusable::Corrupt {
+        bytes,
+        what: format!(
+            "the settings could not be read ({reason}), so they were reset to the defaults"
+        ),
+        kept: Box::default(),
+    }
 }
 /// the saved settings, none when there is no file yet
 fn read(path: &Path) -> Result<Option<Settings>, Unusable> {
@@ -387,11 +437,9 @@ fn read(path: &Path) -> Result<Option<Settings>, Unusable> {
         }
     };
     let saved: Value = match serde_json::from_slice(&bytes) {
-        Ok(saved) => saved,
-        Err(e) => {
-            let reason = e.to_string();
-            return Err(Unusable::Corrupt { bytes, reason });
-        }
+        Ok(saved @ Value::Object(_)) => saved,
+        Ok(_) => return Err(corrupt(bytes, "there are no settings in it")),
+        Err(e) => return Err(corrupt(bytes, e)),
     };
     // a newer app may save settings this one cannot read, they are never reset from here
     if saved["version"]
@@ -402,12 +450,58 @@ fn read(path: &Path) -> Result<Option<Settings>, Unusable> {
             "the settings were saved by a newer version of the app".into(),
         ));
     }
-    match serde_json::from_value::<Settings>(saved)
-        .map_err(|e| e.to_string())
-        .and_then(|settings| settings.validate().map(|()| settings))
-    {
-        Ok(settings) => Ok(Some(settings)),
-        Err(reason) => Err(Unusable::Corrupt { bytes, reason }),
+    let (kept, lost) = merge(&saved);
+    if lost.is_empty() {
+        return Ok(Some(kept));
+    }
+    Err(Unusable::Corrupt {
+        bytes,
+        what: format!(
+            "some settings could not be read ({}), so they went back to their defaults",
+            lost.join(", ")
+        ),
+        kept: Box::new(kept),
+    })
+}
+
+/// values an update moved, from where an older version saved them to where they are now
+const MOVED: &[(&str, &str)] = &[("/vision/horizontal_fov", "/vision/fov")];
+
+/// the saved settings laid over the defaults one value at a time, so an update keeps everything it
+/// still has. a value it dropped is ignored, one it added starts at its default, and one it can't
+/// use stays at its default and is named in the list
+fn merge(saved: &Value) -> (Settings, Vec<String>) {
+    let mut kept = serde_json::to_value(Settings::default()).expect("the defaults are plain JSON");
+    let mut lost = Vec::new();
+    for pointer in leaves(&kept, String::new()) {
+        let found = saved.pointer(&pointer).or_else(|| {
+            let (from, _) = MOVED.iter().find(|(_, to)| *to == pointer)?;
+            saved.pointer(from)
+        });
+        // the version is always this app's, since a newer one was refused before
+        let Some(value) = found.filter(|_| pointer != "/version") else {
+            continue;
+        };
+        let default = std::mem::replace(kept.pointer_mut(&pointer).unwrap(), value.clone());
+        if !usable(&kept) {
+            *kept.pointer_mut(&pointer).unwrap() = default;
+            lost.push(pointer[1..].replace('/', "."));
+        }
+    }
+    let kept = serde_json::from_value(kept).expect("every value kept was checked");
+    (kept, lost)
+}
+fn usable(settings: &Value) -> bool {
+    serde_json::from_value::<Settings>(settings.clone()).is_ok_and(|s| s.validate().is_ok())
+}
+/// where every value that isn't an object sits in `value`
+fn leaves(value: &Value, at: String) -> Vec<String> {
+    match value {
+        Value::Object(map) => map
+            .iter()
+            .flat_map(|(key, inner)| leaves(inner, format!("{at}/{key}")))
+            .collect(),
+        _ => vec![at],
     }
 }
 fn write(path: &Path, settings: &Settings) -> Result<(), String> {

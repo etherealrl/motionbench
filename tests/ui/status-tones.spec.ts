@@ -73,6 +73,7 @@ async function open(page: Page, patch: Record<string, unknown>) {
               };
             if (command === "plugin:dialog|open") return "D:\\Recordings";
             if (command === "check_update") return (patch as { update?: string }).update ?? null;
+            if (command === "display_size") return [2560, 1440];
             // the real one ends the app
             if (command === "install_update") return new Promise(() => {});
             if (command === "run_plot") return fixture.plot;
@@ -706,17 +707,24 @@ test("a new recordings folder is saved, offers the restart, and goes back to the
   await expect(popover.getByText("Motion Bench", { exact: false })).toBeVisible();
   await expect(popover.getByRole("button", { name: "Restart" })).toHaveCount(0);
   await popover.getByRole("button", { name: "Change" }).click();
+  // the recordings already made can go along, which happens at the restart
+  const ask = page.getByRole("alertdialog", { name: "Move your recordings too?" });
+  await expect(ask).toBeVisible();
+  await ask.getByRole("button", { name: "Move them" }).click();
+  await expect(ask).toHaveCount(0);
   await expect(popover.getByText("D:\\Recordings")).toBeVisible();
-  const saved = () =>
+  const storage = () =>
     page.evaluate(
       () =>
         (
           window as unknown as {
-            savedSettings: () => { storage: { folder: string | null } };
+            savedSettings: () => { storage: { folder: string | null; move_from: string | null } };
           }
-        ).savedSettings().storage.folder,
+        ).savedSettings().storage,
     );
-  expect(await saved()).toBe("D:\\Recordings");
+  const saved = async () => (await storage()).folder;
+  expect(await storage()).toEqual({ folder: "D:\\Recordings", move_from: "C:/running" });
+  await expect(popover.getByText("move with them", { exact: false })).toBeVisible();
   // the running app keeps its folder until it starts again
   await expect(popover.getByRole("button", { name: "Restart" })).toBeVisible();
   await popover.getByRole("button", { name: "Restart" }).click();
@@ -804,4 +812,60 @@ test("the recordings sort by name, date and box", async ({ page }) => {
     "aria-sort",
     "ascending",
   );
+});
+
+test("a game fills in the projection, the FOV reads along any axis, and a projection saves by name", async ({
+  page,
+}) => {
+  await open(page, {});
+  const trigger = page.getByRole("button", { name: "Target capture", exact: true });
+  if ((await trigger.getAttribute("aria-expanded")) !== "true") await trigger.click();
+  const section = page.getByRole("region", { name: "Projection" });
+  const vision = () =>
+    page.evaluate(() =>
+      (
+        window as unknown as {
+          savedSettings: () => {
+            vision: { fov: number; fov_axis: string; yaw: number; sensitivity: number };
+            targets: { projections: { name: string }[] };
+          };
+        }
+      ).savedSettings(),
+    );
+  // the defaults are Valorant's, so it says so
+  await expect(section.getByLabel("Preset")).toHaveText("Valorant");
+  await expect(section.getByText("70.53° top to bottom on this 2560 × 1440 display")).toBeVisible();
+  await section.getByLabel("Preset").click();
+  await page.getByRole("option", { name: "Counter-Strike 2" }).click();
+  await expect
+    .poll(async () => (await vision()).vision)
+    .toMatchObject({ fov: 90, fov_axis: "horizontal_4x3", yaw: 0.022, sensitivity: 1.6 });
+  await expect(
+    section.getByText("106.26° across and 73.74° top to bottom", { exact: false }),
+  ).toBeVisible();
+  // the same view said along the height
+  await section.getByLabel("FOV measured").click();
+  await page.getByRole("option", { name: "Vertical" }).click();
+  await expect.poll(async () => (await vision()).vision.fov).toBeCloseTo(73.74, 2);
+  // CS2's numbers still, said another way
+  await expect(section.getByLabel("Preset")).toHaveText("Custom");
+  await section.getByLabel("Save this projection").click();
+  const dialog = page.getByRole("dialog", { name: "Save projection" });
+  await dialog.getByLabel("Name").fill("CS2 1.6");
+  await dialog.getByRole("button", { name: "Save" }).click();
+  await expect
+    .poll(async () => (await vision()).targets.projections.map((p) => p.name))
+    .toEqual(["CS2 1.6"]);
+  await expect(section.getByLabel("Preset")).toHaveText("CS2 1.6");
+  await section.getByLabel("Delete CS2 1.6").click();
+  await expect.poll(async () => (await vision()).targets.projections).toEqual([]);
+  // switching back gives CS2's own number again, so the game still fits
+  await section.getByLabel("FOV measured").click();
+  await page.getByRole("option", { name: "4:3" }).click();
+  await expect(section.getByLabel("Preset")).toHaveText("Counter-Strike 2");
+  // a game whose FOV you pick keeps the view, said its own way, here across the whole width
+  await section.getByLabel("Preset").click();
+  await page.getByRole("option", { name: "Overwatch 2" }).click();
+  await expect.poll(async () => (await vision()).vision.fov).toBeCloseTo(106.26, 2);
+  await expect(section.getByLabel("Preset")).toHaveText("Overwatch 2");
 });

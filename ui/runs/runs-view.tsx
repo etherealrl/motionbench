@@ -7,7 +7,6 @@ import {
   FileUp,
   Library,
   Scissors,
-  SquarePlay,
   Trash2,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -40,7 +39,7 @@ import type { MediusState, Run } from "@/types";
 import { DeleteRunDialog } from "./delete-run";
 import { RecordingClocks } from "./recording-clocks";
 import { CropRun, cropLength } from "./crop-run";
-import { ReplayRun, hadTargets } from "./replay-run";
+import { hadTargets } from "./replay";
 import type { ShownRun } from "./run-dialog";
 import { boxLabel, recordedBox, sorted, type Sort, type SortBy } from "./sort";
 
@@ -59,7 +58,6 @@ export function RunsView({
   const [deleting, setDeleting] = useState<Run | null>(null);
   const [clocks, setClocks] = useState<ShownRun | null>(null);
   const [crop, setCrop] = useState<ShownRun | null>(null);
-  const [replay, setReplay] = useState<ShownRun | null>(null);
   const [deletePending, setDeletePending] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [sort, setSort] = useState<Sort>({ by: "date", down: true });
@@ -113,7 +111,6 @@ export function RunsView({
                   }}
                   onClocks={(opener) => setClocks({ run: r, opener, open: true })}
                   onCrop={(opener) => setCrop({ run: r, opener, open: true })}
-                  onReplay={(opener) => setReplay({ run: r, opener, open: true })}
                 />
               ))}
             </TableBody>
@@ -147,10 +144,6 @@ export function RunsView({
       <CropRun
         shown={crop}
         onClose={() => setCrop((shown) => shown && { ...shown, open: false })}
-      />
-      <ReplayRun
-        shown={replay}
-        onClose={() => setReplay((shown) => shown && { ...shown, open: false })}
       />
       <DeleteRunDialog
         run={deleting}
@@ -341,7 +334,6 @@ function RunRow({
   onDelete,
   onClocks,
   onCrop,
-  onReplay,
 }: {
   run: Run;
   session: Session;
@@ -349,7 +341,6 @@ function RunRow({
   onDelete: () => void;
   onClocks: (opener: HTMLElement | null) => void;
   onCrop: (opener: HTMLElement | null) => void;
-  onReplay: (opener: HTMLElement | null) => void;
 }) {
   const { snapshot, call } = session;
   const menuButton = useRef<HTMLButtonElement>(null);
@@ -382,6 +373,17 @@ function RunRow({
           <Button size="sm" variant="outline" disabled={busy} onClick={() => onInspect(r)}>
             Inspect
           </Button>
+          {r.path.endsWith(".pcap") && (
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={!native || busy}
+              onClick={(e) => onCrop(e.currentTarget)}
+            >
+              <Scissors />
+              {hadTargets(r) ? "Crop and replay" : "Crop"}
+            </Button>
+          )}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button
@@ -396,29 +398,13 @@ function RunRow({
             <DropdownMenuContent align="end">
               {r.path.endsWith(".pcap") && (
                 <>
-                  {hadTargets(r) && (
-                    <DropdownMenuItem
-                      disabled={!native}
-                      onSelect={() => onReplay(menuButton.current)}
-                    >
-                      <SquarePlay />
-                      Replay
-                    </DropdownMenuItem>
-                  )}
-                  <DropdownMenuItem
-                    disabled={!native || busy}
-                    onSelect={() => onCrop(menuButton.current)}
-                  >
-                    <Scissors />
-                    Crop
-                  </DropdownMenuItem>
                   <DropdownMenuItem onSelect={() => onClocks(menuButton.current)}>
                     <Clock />
                     Recording clocks
                   </DropdownMenuItem>
+                  <DropdownMenuSeparator />
                 </>
               )}
-              <DropdownMenuSeparator />
               <DropdownMenuItem
                 variant="destructive"
                 disabled={!native || busy}

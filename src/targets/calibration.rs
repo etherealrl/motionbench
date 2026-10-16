@@ -6,7 +6,7 @@ use crate::evidence::reader::{
 use crate::{
     analysis::compare::Selection,
     capture::{hid::Decoder, pcap},
-    targets::vision::{Camera, Config, Frame, starting_pitch, unit, whole_evidence},
+    targets::vision::{Camera, Config, Frame, Screen, starting_pitch, unit, whole_evidence},
 };
 use serde::{Deserialize, Serialize};
 use std::{
@@ -51,6 +51,7 @@ fn position(motion: &[(u64, [f64; 2])], time: u64) -> [f64; 2] {
 
 pub fn fit(
     profile: &Config,
+    screen: Screen,
     motion: &[(u64, [f64; 2])],
     frames: &[(u64, [f64; 2], f64)],
 ) -> Result<Response, String> {
@@ -98,7 +99,7 @@ pub fn fit(
     if span < (radius_counts * 4.0).max(100.0) {
         return Err("too little movement to estimate response delay, move back and forth around the same target".into());
     }
-    let camera = Camera::new(profile);
+    let camera = Camera::new(profile, screen);
     // the p90 distance, in counts, of each frame's target direction from their middle one; a
     // stationary target stays in one direction, so the spread is the misfit
     let spread = |delay: u32, pitch: f64| {
@@ -323,7 +324,9 @@ pub fn recording(pcap: &Path, crop: Option<Selection>) -> Result<Response, Strin
             continue;
         }
         last_sample = frame.source_us;
-        let (position, radius) = evidence.config.geometry(&frame.detections[0]);
+        let (position, radius) = evidence
+            .config
+            .geometry(evidence.screen, &frame.detections[0]);
         segments
             .last_mut()
             .unwrap()
@@ -334,7 +337,7 @@ pub fn recording(pcap: &Path, crop: Option<Selection>) -> Result<Response, Strin
         .iter()
         .max_by_key(|s| s.last().unwrap().0 - s[0].0)
         .ok_or("no uninterrupted click-free single-target coverage")?;
-    let mut result = fit(&evidence.config, &motion, frames)?;
+    let mut result = fit(&evidence.config, evidence.screen, &motion, frames)?;
     result
         .method
         .push_str("; longest click-free single-target segment; 250 ms release guard");

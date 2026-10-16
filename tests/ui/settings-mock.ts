@@ -35,7 +35,11 @@ export const test = base.extend({
               if (command === "set_recordings_folder") {
                 saved = {
                   ...saved,
-                  storage: { folder: args?.folder as string | null },
+                  storage: {
+                    folder: args?.folder as string | null,
+                    // the mock's running folder, which is the one the recordings would leave
+                    move_from: args?.moveRecordings ? "C:/running" : null,
+                  },
                 };
                 return saved;
               }

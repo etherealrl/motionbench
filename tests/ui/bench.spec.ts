@@ -40,9 +40,8 @@ test("timing evidence gates observer readiness and response calibration keeps un
       scenario: "stationary calibration",
       adapter: 0,
       output: 0,
-      width: 2560,
-      height: 1440,
-      horizontal_fov: 103,
+      fov: 103,
+      fov_axis: "horizontal",
       sensitivity: 1.6,
       yaw: 0.07,
       pitch: 0.07,
@@ -1068,7 +1067,7 @@ test("vision FPS, recording while the model warms up, circle geometry and stale 
   await expect(vision.locator('[data-slot="badge"]')).toHaveCount(0);
   await expect(vision.getByRole("button", { name: "Start target capture" })).toBeVisible();
   await expect(vision.getByLabel("Frame rate limit")).toBeEnabled();
-  await vision.getByText("Projection, detector and hardware", { exact: true }).click();
+  await vision.getByText("Detector and hardware", { exact: true }).click();
   // the model's own class names stand in for the class index
   await chooseOption(vision.getByLabel("Target class"), "1");
   await expect(vision.getByLabel("Target class")).toHaveText("head");
@@ -1213,6 +1212,21 @@ test("a connected box and long labels fit at supported display scales", async ({
       expect(setup.width - across).toBeGreaterThanOrEqual(0);
       expect(setup.width - across).toBeLessThanOrEqual(2);
       if (across === box.width) expect(Math.abs(medius.width - box.width)).toBeLessThan(1);
+      // with nothing reported beside them, the settings take the section's whole width
+      for (const panel of [boxPanel, mediusPanel])
+        expect(
+          await panel.evaluate((section) => {
+            const body = section.querySelector<HTMLElement>(".setup-section-body")!;
+            const main = section.querySelector<HTMLElement>(".setup-section-main")!;
+            const css = getComputedStyle(body);
+            return (
+              body.clientWidth -
+              parseFloat(css.paddingLeft) -
+              parseFloat(css.paddingRight) -
+              main.offsetWidth
+            );
+          }),
+        ).toBeLessThan(2);
     }
   }
   await page.screenshot({

@@ -89,13 +89,14 @@ pub fn recorded(
 
 /// the target capture evidence a recording writes, for the given scenario
 pub fn vision_evidence(scenario: &str) -> String {
-    use crate::targets::vision::{Config, Evidence};
+    use crate::targets::vision::{Config, Evidence, VISION_SCHEMA};
     serde_json::to_string(&Evidence {
-        schema: "motion-bench.vision.v1".into(),
+        schema: VISION_SCHEMA.into(),
         config: Config {
             scenario: scenario.into(),
             ..Default::default()
         },
+        screen: [2560, 1440],
         model_sha256: "x".into(),
         provider: "CUDA".into(),
         pipeline: "synthetic".into(),

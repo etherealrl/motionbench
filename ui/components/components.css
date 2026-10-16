@@ -95,7 +95,7 @@
    split by a line, and a line drawn between blocks keeps a row's space on either side */
 .setup-section-body {
   display: grid;
-  grid-template-columns: minmax(0, 48rem) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--spacing-block) --spacing(10);
   align-items: start;
   /* the content starts under the title, past the chevron */
@@ -109,9 +109,12 @@
   gap: var(--spacing-block);
   min-width: 0;
 }
-/* every line in the settings column ends at the same place */
-.setup-section-main {
-  max-width: var(--container-3xl);
+/* the settings keep a readable width when what the part reports sits beside them, and take the
+   whole width otherwise */
+@container (width > 1100px) {
+  .setup-section-body:has(> .setup-section-aside) {
+    grid-template-columns: minmax(0, 48rem) minmax(0, 1fr);
+  }
 }
 .setting-section {
   display: grid;
@@ -172,9 +175,6 @@
   margin-bottom: var(--spacing-inline);
 }
 @container (max-width: 1100px) {
-  .setup-section-body {
-    grid-template-columns: minmax(0, 1fr);
-  }
   .setup-section-aside {
     order: -1;
   }

@@ -57,7 +57,7 @@ fn a_refused_change_changes_nothing() {
     for deadzone in [-1.0, 100.5] {
         assert!(store.update(|s| s.aim.deadzone_counts = deadzone).is_err());
     }
-    assert!(store.update(|s| s.vision.width = 38).is_err());
+    assert!(store.update(|s| s.vision.fov = 179.0).is_err());
     assert_eq!(store.get().aim.speed, 3000.0);
     assert_eq!(std::fs::read(&path).unwrap(), bytes);
 }
@@ -81,21 +81,46 @@ fn the_ui_cannot_patch_bindings_capture_or_unknown_fields() {
 }
 
 #[test]
-fn saved_files_out_of_shape_are_corrupt() {
+fn a_saved_value_out_of_shape_goes_back_to_its_default_alone() {
     let mut good = serde_json::to_value(Settings::default()).unwrap();
     good["recording"]["button"] = json!(16);
-    assert!(serde_json::from_value::<Settings>(good.clone()).is_ok());
-    let mut cases = Vec::new();
+    good["aim"]["speed"] = json!(3000.0);
+    let good_settings: Settings = serde_json::from_value(good.clone()).unwrap();
+    let write = |case: &Value| {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("config.json");
+        std::fs::write(&path, case.to_string()).unwrap();
+        read(&path)
+    };
     for (pointer, value) in [
         ("/recording/button", json!(24)),
         ("/aim/button", json!(0)),
         ("/display/zoom", json!(1.3)),
-        ("/display/sections/medius", json!(1)),
         ("/capture/mouse", json!({"bus":1})),
-        ("/vision/stale", json!(1)),
         // well shaped but out of the limits
         ("/aim/speed", json!(50)),
-        ("/vision/width", json!(38)),
+        ("/vision/fov", json!(179)),
+    ] {
+        let mut case = good.clone();
+        *case.pointer_mut(pointer).unwrap() = value;
+        let Err(Unusable::Corrupt { what, kept, .. }) = write(&case) else {
+            panic!("{case}");
+        };
+        let mut expected = good.clone();
+        *expected.pointer_mut(pointer).unwrap() = serde_json::to_value(Settings::default())
+            .unwrap()
+            .pointer(pointer)
+            .unwrap()
+            .clone();
+        assert_eq!(serde_json::to_value(kept).unwrap(), expected, "{case}");
+        assert!(what.contains(&pointer[1..].replace('/', ".")), "{what}");
+    }
+    // what an update added, dropped or left out is no reason to touch the file
+    let mut cases = Vec::new();
+    for (pointer, value) in [
+        ("/display/sections/medius", json!(1)),
+        ("/vision/stale", json!(1)),
+        ("/aim/hotkey_mask", json!(8)),
         ("/version", json!(0)),
     ] {
         let mut case = good.clone();
@@ -103,18 +128,33 @@ fn saved_files_out_of_shape_are_corrupt() {
         case.pointer_mut(parent).unwrap()[key] = value;
         cases.push(case);
     }
-    let mut extra = good.clone();
-    extra["aim"]["hotkey_mask"] = json!(8);
-    cases.push(extra);
     let mut missing = good.clone();
-    missing["aim"].as_object_mut().unwrap().remove("speed");
+    missing["display"].as_object_mut().unwrap().remove("theme");
     cases.push(missing);
     for case in cases {
-        let dir = tempfile::tempdir().unwrap();
-        let path = dir.path().join("config.json");
-        std::fs::write(&path, case.to_string()).unwrap();
-        assert!(read(&path).is_err(), "{case}");
+        assert_eq!(write(&case).unwrap(), Some(good_settings.clone()), "{case}");
     }
+}
+
+#[test]
+fn settings_from_0_3_0_keep_everything_this_version_still_has() {
+    let mut old = serde_json::to_value(Settings::default()).unwrap();
+    let vision = old["vision"].as_object_mut().unwrap();
+    vision.remove("fov");
+    vision.remove("fov_axis");
+    vision.insert("horizontal_fov".into(), json!(97.5));
+    vision.insert("width".into(), json!(2560));
+    vision.insert("height".into(), json!(1440));
+    old["aim"]["speed"] = json!(1300.0);
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("config.json");
+    std::fs::write(&path, old.to_string()).unwrap();
+    let store = Store::open(path);
+    assert!(store.notice().is_none());
+    let settings = store.get();
+    assert_eq!(settings.vision.fov, 97.5);
+    assert_eq!(settings.vision.fov_axis, vision::FovAxis::Horizontal);
+    assert_eq!(settings.aim.speed, 1300.0);
 }
 
 #[test]
@@ -167,15 +207,22 @@ fn startup_keeps_a_copy_of_a_corrupt_config_before_resetting_it() {
         std::fs::write(&path, &bytes).unwrap();
         let store = Store::open(path.clone());
         assert!(store.notice().is_some(), "{case:?}");
-        assert_eq!(store.get(), Settings::default(), "{case:?}");
         let copy = dir.path().join("config.corrupt-1.json");
         if case.ends_with("version-2.json") {
             // settings from a newer app are left alone and nothing is saved over them
             assert!(!copy.exists());
+            assert_eq!(store.get(), Settings::default());
             store.update(|s| s.aim.speed = 3000.0).unwrap();
             assert_eq!(store.get().aim.speed, 3000.0);
             assert_eq!(std::fs::read(&path).unwrap(), bytes);
+        } else if case.ends_with("zoom-out-of-range.json") {
+            // only the zoom goes back to its default
+            assert_eq!(store.get().display.zoom, Settings::default().display.zoom);
+            assert_eq!(store.get().vision.fov, 90.0);
+            assert_eq!(std::fs::read(&copy).unwrap(), bytes);
+            assert_eq!(read(&path).unwrap(), Some(store.get()));
         } else {
+            assert_eq!(store.get(), Settings::default(), "{case:?}");
             assert_eq!(std::fs::read(&copy).unwrap(), bytes, "{case:?}");
             assert!(read(&path).unwrap().is_some(), "{case:?}");
         }
@@ -242,4 +289,40 @@ fn a_recordings_folder_is_saved_whole_and_a_partial_path_is_refused() {
     );
     store.update(|s| s.storage.folder = None).unwrap();
     assert_eq!(saved(&path)["storage"]["folder"], Value::Null);
+}
+
+#[test]
+fn projections_are_saved_by_name_and_a_bad_one_changes_nothing() {
+    let dir = tempfile::tempdir().unwrap();
+    let (store, path) = store(&dir);
+    let valorant = Projection {
+        name: "Valorant".into(),
+        sensitivity: 0.35,
+        fov: 103.0,
+        fov_axis: vision::FovAxis::Horizontal,
+        yaw: 0.07,
+        pitch: 0.07,
+    };
+    store
+        .update(|s| s.targets.projections = vec![valorant.clone()])
+        .unwrap();
+    assert_eq!(
+        Store::open(path.clone()).get().targets.projections,
+        vec![valorant.clone()]
+    );
+    for bad in [
+        // a second one by the same name
+        vec![valorant.clone(), valorant.clone()],
+        vec![Projection {
+            name: " Valorant".into(),
+            ..valorant.clone()
+        }],
+        vec![Projection {
+            fov: 179.0,
+            ..valorant.clone()
+        }],
+    ] {
+        assert!(store.update(|s| s.targets.projections = bad).is_err());
+    }
+    assert_eq!(store.get().targets.projections, vec![valorant]);
 }

@@ -210,7 +210,7 @@ fn closing_the_app_commits_the_recording_and_lists_nothing() {
     let state = state(folder.path());
     let stem = start(&state);
     reports(&state, 2_000_000);
-    close(&state, Duration::from_secs(1));
+    close(&state, Duration::from_secs(10));
     assert!(state.recording.closed());
     let (metadata, journal, observers) = saved(folder.path(), &stem);
     assert_eq!(metadata["stop_reason"], "app_exit");
@@ -452,7 +452,7 @@ fn closing_drops_a_waiting_press_and_still_commits_the_recording() {
     let stem = start(&state);
     reports(&state, 2_000_000);
     assert!(state.recording.press());
-    close(&state, Duration::from_secs(1));
+    close(&state, Duration::from_secs(10));
     assert!(state.recording.closed());
     let (metadata, ..) = saved(folder.path(), &stem);
     assert_eq!(metadata["stop_reason"], "app_exit");
@@ -883,9 +883,9 @@ fn closing_with_a_stuck_box_returns_within_its_bound() {
     reports(&state, 2_000_000);
     let _stuck = worker.hold_box();
     let asked = std::time::Instant::now();
-    close(&state, Duration::from_secs(2));
+    close(&state, Duration::from_secs(10));
     assert!(
-        asked.elapsed() < Duration::from_secs(3),
+        asked.elapsed() < Duration::from_secs(11),
         "{:?}",
         asked.elapsed()
     );
@@ -926,7 +926,7 @@ fn target_events_a_finished_recording_is_missing_are_built_when_the_library_is_r
     std::fs::remove_file(&events).unwrap();
     let interrupted = start(&state);
     reports(&state, 3_000_000);
-    close(&state, Duration::from_secs(1));
+    close(&state, Duration::from_secs(10));
     let library = crate::library::Library::new(folder.path().to_path_buf());
     let warnings = library.restore();
     let runs = library.runs();

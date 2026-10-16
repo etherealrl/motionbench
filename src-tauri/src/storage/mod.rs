@@ -3,3 +3,4 @@
 
 pub mod backup;
 pub mod folders;
+pub mod moving;

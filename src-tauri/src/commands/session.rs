@@ -31,9 +31,32 @@ pub(crate) async fn initialize(state: State<'_, Shared>) -> Result<Value, String
     let library_warnings = if !restore {
         Vec::new()
     } else {
-        tauri::async_runtime::spawn_blocking(move || library.restore())
-            .await
-            .map_err(|e| e.to_string())?
+        let settings = state.recording_hotkey.settings().clone();
+        let folder = state.folder.clone();
+        tauri::async_runtime::spawn_blocking(move || {
+            let mut warnings = Vec::new();
+            if let Some(from) = settings.get().storage.move_from {
+                let moved = if from == folder {
+                    Ok(Vec::new())
+                } else {
+                    crate::storage::moving::move_recordings(&from, &folder)
+                };
+                match moved {
+                    Err(e) => warnings.push(e),
+                    Ok(left) => {
+                        warnings = left;
+                        // cleared even when some stayed behind, so they aren't tried again at every start
+                        if let Err(e) = settings.update(|s| s.storage.move_from = None) {
+                            warnings.push(e);
+                        }
+                    }
+                }
+            }
+            warnings.extend(library.restore());
+            warnings
+        })
+        .await
+        .map_err(|e| e.to_string())?
     };
     let mut warnings = Vec::new();
     // a folder on a drive that's gone would just look like an empty library until a recording fails
@@ -177,22 +200,35 @@ pub(crate) fn open_folder(state: State<'_, Shared>) -> Result<(), String> {
         .map(drop)
         .map_err(|e| format!("couldn't open {}: {e}", state.folder.display()))
 }
-/// where recordings go from the next start on, or back to the default with none. the folder has to take
-/// a file now, so a drive that's gone or read only says so here rather than at the next recording
+/// where recordings go from the next start on, or back to the default with none, and whether the
+/// ones already made go along. the folder has to take a file now, so a drive that's gone or read
+/// only says so here rather than at the next recording
 #[tauri::command]
 pub(crate) async fn set_recordings_folder(
     folder: Option<String>,
+    move_recordings: bool,
     state: State<'_, Shared>,
 ) -> Result<config::Settings, String> {
     off_main(state, move |state| {
         let folder = folder.map(std::path::PathBuf::from);
-        if let Some(folder) = &folder {
-            writable(folder)?;
+        let target = folder
+            .clone()
+            .unwrap_or_else(crate::storage::folders::default_recordings);
+        writable(&target)?;
+        let move_from = (move_recordings && target != state.folder).then(|| state.folder.clone());
+        if move_from
+            .as_ref()
+            .is_some_and(|from| target.starts_with(from) || from.starts_with(&target))
+        {
+            return Err(
+                "the recordings can't move into a folder inside their own, or out of one around it"
+                    .into(),
+            );
         }
-        state
-            .recording_hotkey
-            .settings()
-            .update(|s| s.storage.folder = folder)
+        state.recording_hotkey.settings().update(|s| {
+            s.storage.folder = folder;
+            s.storage.move_from = move_from;
+        })
     })
     .await
 }

@@ -20,15 +20,9 @@ import { Notice } from "@/components/notice";
 import { SettingRow, SettingSection } from "@/components/setting-row";
 import { SetupSection } from "@/components/setup-section";
 import { ResponseDelay, useDelayEstimate } from "./response-delay";
+import { NumberRow, type NumberSetting, type Update } from "./number-row";
+import { ProjectionSettings } from "./projection";
 
-// a number setting: key, label, unit, decimals shown, what it means
-type NumberSetting = [keyof VisionConfig, string, string | null, number, string?];
-const projection: NumberSetting[] = [
-  ["sensitivity", "Sensitivity", null, 2],
-  ["horizontal_fov", "Horizontal FOV", "°", 4],
-  ["yaw", "Yaw", "° per count", 4],
-  ["pitch", "Pitch", "° per count", 4],
-];
 const targetClass: NumberSetting = ["target_class", "Target class", null, 0, "-1 takes any class"];
 const detector: NumberSetting[] = [["confidence", "Minimum confidence", null, 2]];
 const hardware: NumberSetting[] = [
@@ -58,7 +52,6 @@ function captureState(
     : { label: "Waiting for frames", tone: "warning" };
 }
 
-type Update = (key: keyof VisionConfig, value: string | number | boolean) => void;
 type Command = (name: string, args?: Record<string, unknown>) => Promise<unknown>;
 
 // the saved target settings, and starting or stopping the worker with them
@@ -129,7 +122,7 @@ export function TargetSection({
           onClick={() => void toggle()}
         />
       }
-      aside={active && <TargetLive status={status} config={config} fresh={fresh} />}
+      aside={active && <TargetLive status={status} fresh={fresh} />}
     >
       {status?.error && <Notice error>{status.error}</Notice>}
       {running && !recording && (
@@ -138,10 +131,11 @@ export function TargetSection({
         </p>
       )}
       <TargetSettings config={config} update={update} locked={locked} native={native} />
+      <ProjectionSettings config={config} status={status} locked={locked} />
       <StartOnLaunch />
       <details className="advanced-settings">
-        <Summary>Projection, detector and hardware</Summary>
-        <Projection config={config} update={update} locked={locked} />
+        <Summary>Detector and hardware</Summary>
+        <DetectorAndHardware config={config} update={update} locked={locked} />
       </details>
       <details className="advanced-settings">
         <Summary>Response delay</Summary>
@@ -160,7 +154,7 @@ export function TargetSection({
 
 // a preference, not one of target capture's own settings, so it can change while it runs
 function StartOnLaunch() {
-  const { start_on_launch } = useSettings().targets;
+  const targets = useSettings().targets;
   return (
     <div className="setting-group">
       <SettingRow
@@ -170,8 +164,10 @@ function StartOnLaunch() {
       >
         <Switch
           id="targets-on-launch"
-          checked={start_on_launch}
-          onCheckedChange={(start) => updateSettings({ targets: { start_on_launch: start } })}
+          checked={targets.start_on_launch}
+          onCheckedChange={(start) =>
+            updateSettings({ targets: { ...targets, start_on_launch: start } })
+          }
         />
       </SettingRow>
     </div>
@@ -302,7 +298,7 @@ function TargetSettings({
   );
 }
 
-function Projection({
+function DetectorAndHardware({
   config,
   update,
   locked,
@@ -317,9 +313,6 @@ function Projection({
     ));
   return (
     <fieldset disabled={locked} className="setting-stack">
-      <SettingSection title="Projection">
-        <div className="setting-group">{rows(projection)}</div>
-      </SettingSection>
       <SettingSection title="Detector">
         <div className="setting-group">
           <TargetClass config={config} update={update} />
@@ -388,54 +381,11 @@ function TargetClass({ config, update }: { config: VisionConfig; update: Update 
   );
 }
 
-// a text field, so a decimal reads with a point like the readouts whatever the system's locale;
-// what is typed stays as typed until the field loses focus
-function NumberRow({
-  setting: [key, label, unit, decimals, help],
-  config,
-  update,
-}: {
-  setting: NumberSetting;
-  config: VisionConfig;
-  update: Update;
-}) {
-  const [typed, setTyped] = useState<string | null>(null);
-  return (
-    <SettingRow id={`target-${key}`} label={label} description={help}>
-      <InputGroup>
-        <InputGroupInput
-          id={`target-${key}`}
-          inputMode="decimal"
-          value={typed ?? String(Number(Number(config[key]).toFixed(decimals)))}
-          onChange={(e) => setTyped(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") e.currentTarget.blur();
-          }}
-          // saved when the field is left, a half written value would be refused
-          onBlur={() => {
-            const value = Number(typed?.replace(",", "."));
-            if (typed?.trim() && Number.isFinite(value)) update(key, value);
-            setTyped(null);
-          }}
-        />
-        {unit && <InputGroupAddon align="inline-end">{unit}</InputGroupAddon>}
-      </InputGroup>
-    </SettingRow>
-  );
-}
-
 // the detections on a picture of the captured screen, and how current they are
-function TargetLive({
-  status,
-  config,
-  fresh,
-}: {
-  status?: VisionStatus;
-  config: VisionConfig;
-  fresh: boolean;
-}) {
+function TargetLive({ status, fresh }: { status?: VisionStatus; fresh: boolean }) {
   const [expanded, setExpanded] = useState(false);
-  const [width, height] = status?.viewport?.[0] ? status.viewport : [config.width, config.height];
+  // a 16:9 stand-in until the display is open
+  const [width, height] = status?.viewport?.[0] ? status.viewport : [1920, 1080];
   const targets = fresh ? status!.last!.detections : [];
   const seen = targets.filter(
     (target) => targetCircle(target.bounds, width, height) !== null,

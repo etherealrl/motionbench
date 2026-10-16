@@ -1,15 +1,18 @@
 use super::*;
 use std::path::Path;
-/// the projection these tests were worked out with: CS2, whose 4:3 view stretched to 16:9 shows
-/// 106.26 degrees across
+/// the projection these tests were worked out with: CS2, whose 90 degrees at 4:3 show 106.26
+/// degrees across a 16:9 screen
 fn cs2() -> Config {
     Config {
-        horizontal_fov: 106.2602047083,
+        fov: 90.0,
+        fov_axis: FovAxis::Horizontal4x3,
         yaw: 0.022,
         pitch: 0.022,
         ..Config::default()
     }
 }
+/// the screen the tests are worked out on
+pub(crate) const SCREEN: Screen = [2560, 1440];
 #[test]
 fn frame_limits_support_unlimited_and_high_refresh_rates() {
     let mut config = Config::default();
@@ -25,23 +28,29 @@ fn frame_limits_support_unlimited_and_high_refresh_rates() {
 #[test]
 fn cs2_projection_and_off_center_radius_use_edges() {
     let cfg = cs2();
-    assert_eq!(cfg.counts(1280.0, 720.0), [0.0, 0.0]);
-    let p = cfg.counts(2560.0, 720.0);
-    assert!((p[0] - cfg.horizontal_fov / 2.0 / 0.0352).abs() < 1e-8);
-    let (_, radius) = cfg.geometry(&Detection {
-        bounds: [2000.0, 680.0, 2080.0, 760.0],
-        confidence: 1.0,
-        class: 0,
-    });
+    assert_eq!(cfg.counts(SCREEN, 1280.0, 720.0), [0.0, 0.0]);
+    let p = cfg.counts(SCREEN, 2560.0, 720.0);
+    assert!((p[0] - 106.2602047083 / 2.0 / 0.0352).abs() < 1e-8);
+    let (_, radius) = cfg.geometry(
+        SCREEN,
+        &Detection {
+            bounds: [2000.0, 680.0, 2080.0, 760.0],
+            confidence: 1.0,
+            class: 0,
+        },
+    );
     assert!(radius > 0.0);
     assert!(
         radius
             < cfg
-                .geometry(&Detection {
-                    bounds: [1240.0, 680.0, 1320.0, 760.0],
-                    confidence: 1.0,
-                    class: 0
-                })
+                .geometry(
+                    SCREEN,
+                    &Detection {
+                        bounds: [1240.0, 680.0, 1320.0, 760.0],
+                        confidence: 1.0,
+                        class: 0
+                    }
+                )
                 .1
     );
 }
@@ -78,11 +87,14 @@ fn an_off_center_target_above_the_camera_has_its_true_angular_radius() {
             bounds[3].max(y),
         ];
     }
-    let (_, found) = cfg.geometry(&Detection {
-        bounds,
-        confidence: 1.0,
-        class: 0,
-    });
+    let (_, found) = cfg.geometry(
+        SCREEN,
+        &Detection {
+            bounds,
+            confidence: 1.0,
+            class: 0,
+        },
+    );
     assert!((found - radius).abs() < 0.05, "{found}");
 }
 #[test]
@@ -99,7 +111,7 @@ pub(crate) fn scenario() -> Config {
     }
 }
 fn focal(cfg: &Config) -> f64 {
-    cfg.width as f64 / (2.0 * (cfg.horizontal_fov.to_radians() / 2.0).tan())
+    cfg.focal(SCREEN)
 }
 /// a direction in the world from its yaw and its pitch above level, in degrees
 fn toward(yaw: f64, pitch: f64) -> [f64; 3] {
@@ -125,8 +137,8 @@ fn seen(cfg: &Config, direction: [f64; 3], mouse: [f64; 2], pitch: f64) -> [f64;
     let z = p.sin() * q.sin() + p.cos() * q.cos() * dy.cos();
     let f = focal(cfg);
     [
-        cfg.width as f64 / 2.0 + f * x / z,
-        cfg.height as f64 / 2.0 - f * y / z,
+        SCREEN[0] as f64 / 2.0 + f * x / z,
+        SCREEN[1] as f64 / 2.0 - f * y / z,
     ]
 }
 /// a target seen at tick `i`, its box about 40 counts across at the middle of the screen
@@ -190,8 +202,9 @@ fn record_at(
     metadata["selection"] = serde_json::json!({"bus": 1, "address": 31, "endpoint": 129});
     std::fs::write(path.with_extension("json"), metadata.to_string()).unwrap();
     let evidence = Evidence {
-        schema: "motion-bench.vision.v1".into(),
+        schema: VISION_SCHEMA.into(),
         config: cfg.clone(),
+        screen: SCREEN,
         model_sha256: "synthetic".into(),
         provider: "synthetic".into(),
         pipeline: "synthetic".into(),
@@ -355,7 +368,7 @@ fn a_target_above_the_camera_keeps_its_event_and_b80() {
     assert!((fitted - pitch).abs() < 0.05, "{fitted}");
     // the turn left from tick 300 + n is 1200 - 5n right and 720 - 3n up; B80 is where that first
     // comes within the radius plus a fifth of the way from it
-    let (_, radius) = cfg.geometry(&frames[0].detections[0]);
+    let (_, radius) = cfg.geometry(SCREEN, &frames[0].detections[0]);
     let left = |n: usize| (1200.0 - 5.0 * n as f64).hypot(720.0 - 3.0 * n as f64);
     let n = (0..240)
         .find(|n| left(*n) <= radius + 0.2 * (left(0) - radius))
@@ -440,8 +453,9 @@ fn target_events_need_only_a_named_scenario() {
 fn a_frame_needs_its_native_clocks_and_settings_and_evidence_every_field() {
     let config = cs2();
     let mut evidence = Evidence {
-        schema: "motion-bench.vision.v1".into(),
+        schema: VISION_SCHEMA.into(),
         config: config.clone(),
+        screen: SCREEN,
         model_sha256: "synthetic".into(),
         provider: "synthetic".into(),
         pipeline: "synthetic".into(),
@@ -700,4 +714,71 @@ fn only_a_lasting_second_target_is_marked_for_the_crop() {
         crowded_spans(&path).unwrap(),
         vec![[ORIGIN + 200_000, ORIGIN + 320_000]]
     );
+}
+
+/// one FOV said along either axis is the same projection, and 4:3 is the width of a 4:3 screen
+/// of the same height
+#[test]
+fn a_fov_along_any_axis_gives_the_same_projection() {
+    let horizontal = Config {
+        fov: 103.0,
+        ..Config::default()
+    };
+    let vertical = Config {
+        fov: 2.0
+            * ((103.0f64.to_radians() / 2.0).tan() * 1440.0 / 2560.0)
+                .atan()
+                .to_degrees(),
+        fov_axis: FovAxis::Vertical,
+        ..Config::default()
+    };
+    assert!((horizontal.focal(SCREEN) - vertical.focal(SCREEN)).abs() < 1e-9);
+    assert_eq!(
+        horizontal
+            .counts(SCREEN, 2000.0, 300.0)
+            .map(|v| (v * 1e6).round()),
+        vertical
+            .counts(SCREEN, 2000.0, 300.0)
+            .map(|v| (v * 1e6).round())
+    );
+    let four_three = Config {
+        fov: 90.0,
+        fov_axis: FovAxis::Horizontal4x3,
+        ..Config::default()
+    };
+    assert!((four_three.focal(SCREEN) - 1920.0 / 2.0).abs() < 1e-9);
+}
+#[test]
+fn a_target_capture_from_0_3_0_reads_with_its_screen_and_fov() {
+    let folder = crate::testkit::traffic::TempDir::new("v1");
+    std::fs::create_dir_all(folder.path()).unwrap();
+    let pcap = folder.path().join("old.pcap");
+    let mut saved = serde_json::to_value(Evidence {
+        schema: "motion-bench.vision.v1".into(),
+        config: Config::default(),
+        screen: [0, 0],
+        model_sha256: "synthetic".into(),
+        provider: "synthetic".into(),
+        pipeline: "synthetic".into(),
+        inference: None,
+        complete: true,
+        error: None,
+        clock: None,
+    })
+    .unwrap();
+    saved.as_object_mut().unwrap().remove("screen");
+    let config = saved["config"].as_object_mut().unwrap();
+    config.remove("fov");
+    config.remove("fov_axis");
+    config.insert("width".into(), 1920.into());
+    config.insert("height".into(), 1080.into());
+    config.insert("horizontal_fov".into(), 97.5.into());
+    std::fs::write(pcap.with_extension("vision.json"), saved.to_string()).unwrap();
+    let evidence = whole_evidence(&pcap, "incomplete").unwrap();
+    assert_eq!(evidence.screen, [1920, 1080]);
+    assert_eq!(evidence.config.fov, 97.5);
+    assert_eq!(evidence.config.fov_axis, FovAxis::Horizontal);
+    saved["schema"] = "motion-bench.vision.v3".into();
+    std::fs::write(pcap.with_extension("vision.json"), saved.to_string()).unwrap();
+    assert!(whole_evidence(&pcap, "incomplete").is_err());
 }

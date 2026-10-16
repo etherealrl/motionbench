@@ -35,7 +35,7 @@ record one condition 10 times and compare the 1st, 3rd, 5th, 7th and 9th against
 
 ### crop the edges
 
-the start and end of a recording are usually you tabbing in and out of the game. crop them in Runs (the ⋯ menu, then Crop) so the judges only read the part you care about
+the start and end of a recording are usually you tabbing in and out of the game. crop them in Runs (Crop, next to Inspect) so the judges only read the part you care about. with target capture on, the crop plays the recording back too, so you can see where the game actually starts and ends
 
 ## picking the mode and the features
 
@@ -88,7 +88,7 @@ this is the one where target capture matters the most, because an assist acts on
 6. play the same scenario with and without the program, alternating, 5 times or more each
 7. compare with Separate recordings and Full49
 
-replay a recording or two from Runs before you compare. the crosshair should sit on the target when you click, if it doesn't the projection settings are off
+replay a recording or two from Runs before you compare (Crop and replay, next to Inspect). the crosshair should sit on the target when you click, if it doesn't the projection settings are off
 
 ## reading the result
 

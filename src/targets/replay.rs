@@ -16,7 +16,8 @@ pub struct Replay {
     /// the captured screen, in pixels
     pub width: u32,
     pub height: u32,
-    pub horizontal_fov: f64,
+    /// how far the eye sits from the screen, in pixels
+    pub focal: f64,
     /// degrees per count, yaw then pitch
     pub degrees: [f64; 2],
     /// where the camera pointed vertically when the recording started, from the target events
@@ -47,7 +48,7 @@ pub fn replay(pcap: &Path) -> Result<Replay, String> {
         pcap,
         "this recording's target capture didn't finish, so it can't be played back",
     )?;
-    let config = evidence.config;
+    let config = &evidence.config;
     let located = locate(pcap)?;
     let (metadata, _) = assess(&located);
     let metadata = metadata
@@ -82,9 +83,9 @@ pub fn replay(pcap: &Path) -> Result<Replay, String> {
         .and_then(|events| events["starting_pitch_degrees"].as_f64())
         .unwrap_or(0.0);
     Ok(Replay {
-        width: config.width,
-        height: config.height,
-        horizontal_fov: config.horizontal_fov,
+        width: evidence.screen[0],
+        height: evidence.screen[1],
+        focal: config.focal(evidence.screen),
         degrees: [
             config.sensitivity * config.yaw,
             config.sensitivity * config.pitch,

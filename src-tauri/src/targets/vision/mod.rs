@@ -1,5 +1,5 @@
 use motion_bench::sync::LockExt;
-use motion_bench::targets::vision::{Config, Evidence, Frame};
+use motion_bench::targets::vision::{Config, Evidence, Frame, VISION_SCHEMA};
 use serde::Serialize;
 use std::{
     fs::File,
@@ -42,6 +42,7 @@ pub struct Status {
     /// over the last ten seconds, in milliseconds, the worst being the slowest 1%
     pub pipeline: Option<Spread>,
     pub frame_age_ms: Option<f64>,
+    /// the captured display's size, zero until it's open
     pub viewport: [u32; 2],
     pub throttled: u64,
     /// the digest of the model bytes the worker loaded
@@ -174,8 +175,9 @@ impl Journal {
             return Err("the target model wasn't ready yet".into());
         }
         let evidence = Evidence {
-            schema: "motion-bench.vision.v1".into(),
+            schema: VISION_SCHEMA.into(),
             config: self.config.clone(),
+            screen: status.viewport,
             model_sha256: status
                 .model_sha256
                 .ok_or("target capture has no model loaded")?,
@@ -260,7 +262,7 @@ impl Worker {
         let preparation = Preparation;
         let status = Arc::new(Mutex::new(Status {
             running: true,
-            viewport: [config.width, config.height],
+            viewport: [0, 0],
             event_ready: !config.scenario.trim().is_empty(),
             ..Status::default()
         }));
@@ -652,24 +654,18 @@ fn run(
     .map_err(fail)?;
     let (device, context) = (device.unwrap(), context.unwrap());
     let output: IDXGIOutput1 = output.cast().map_err(fail)?;
-    // the display as the model's projection expects it: unrotated, at the configured size
+    // the display as the projection reads it: unrotated, and its size is the screen the FOV spans
     let usable = |duplication: &IDXGIOutputDuplication| {
         let desc = unsafe { duplication.GetDesc() };
-        let (width, height) = (desc.ModeDesc.Width, desc.ModeDesc.Height);
         if desc.Rotation != windows::Win32::Graphics::Dxgi::Common::DXGI_MODE_ROTATION_IDENTITY {
             return Err("rotated displays are unsupported for target projection".to_string());
         }
-        if (width, height) != (config.width, config.height) {
-            return Err(format!(
-                "selected display is {width}×{height}, expected {}×{}. use native resolution and an unscaled viewport",
-                config.width, config.height
-            ));
-        }
-        Ok(())
+        Ok([desc.ModeDesc.Width, desc.ModeDesc.Height])
     };
     let mut duplication = duplicate(&output, &device, stop).map_err(fail)?;
-    usable(&duplication)?;
-    let (width, height) = (config.width, config.height);
+    let screen = usable(&duplication)?;
+    status.locked().viewport = screen;
+    let [width, height] = screen;
     let preprocess =
         crate::targets::preprocess::Preprocess::new(&device, width, height, size).map_err(fail)?;
     let model_shape = format!("{shape:?}");
@@ -722,7 +718,14 @@ fn run(
                     return Ok(());
                 }
                 duplication = again.map_err(|e| format!("DXGI capture stopped ({e}), so restart it after changing displays or fullscreen mode"))?;
-                usable(&duplication)?;
+                // the targets already found were placed on the old size
+                let now = usable(&duplication)?;
+                if now != screen {
+                    return Err(format!(
+                        "the display changed from {}×{} to {}×{} while target capture ran, so restart it",
+                        screen[0], screen[1], now[0], now[1]
+                    ));
+                }
                 continue;
             }
             Err(e) => {

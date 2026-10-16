@@ -82,10 +82,11 @@ export function updateSettings(patch: SettingsPatch) {
   timer = setTimeout(() => void flushSettings(), 300);
 }
 
-/** where recordings go from the next start on, null for the default. native checks it can write
- * there first, so a refusal comes back as the error */
-export async function setRecordingsFolder(folder: string | null) {
-  if (native) saved = await invoke<AppSettings>("set_recordings_folder", { folder });
-  else saved = { ...saved, storage: { folder } };
+/** where recordings go from the next start on, null for the default, and whether the ones already
+ * made move there too. native checks it can write there first, so a refusal comes back as the error */
+export async function setRecordingsFolder(folder: string | null, move: boolean) {
+  if (native)
+    saved = await invoke<AppSettings>("set_recordings_folder", { folder, moveRecordings: move });
+  else saved = { ...saved, storage: { folder, move_from: null } };
   publish();
 }

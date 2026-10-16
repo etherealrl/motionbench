@@ -173,7 +173,7 @@ fn decide(
     if !state.running || !state.ready || state.error.is_some() {
         return Err("target capture stopped, restart it and re-arm the experiment".into());
     }
-    let frame = state.last.clone();
+    let (frame, screen) = (state.last.clone(), state.viewport);
     drop(state);
     let Some(frame) = frame else {
         return Ok(Step::Wait);
@@ -193,9 +193,11 @@ fn decide(
         return Ok(discard(previous, linear));
     }
     let bounds = frame.detections[0].bounds;
-    let target = source
-        .config
-        .counts((bounds[0] + bounds[2]) / 2.0, (bounds[1] + bounds[3]) / 2.0);
+    let target = source.config.counts(
+        screen,
+        (bounds[0] + bounds[2]) / 2.0,
+        (bounds[1] + bounds[3]) / 2.0,
+    );
     c.status.target_counts = Some(target);
     let was_settled = linear.settled();
     let settled = linear.hold(target, c.config.deadzone_counts);
